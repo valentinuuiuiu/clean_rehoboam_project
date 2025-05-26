@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #111827;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            border-bottom: 1px solid #374151;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .subtitle {
+            color: #9CA3AF;
+        }
+        .card {
+            background-color: #1F2937;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        .price-card {
+            background-color: #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .coin-name {
+            font-weight: bold;
+        }
+        .coin-symbol {
+            color: #9CA3AF;
+        }
+        .price {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .positive {
+            color: #10B981;
+        }
+        .negative {
+            color: #EF4444;
+        }
+        .strategy-card {
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .strategy-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        .risk-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+        }
+        .moderate-risk {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #93C5FD;
+        }
+        .low-risk {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #6EE7B7;
+        }
+        .strategy-description {
+            color: #9CA3AF;
+            margin-top: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.75rem;
+        }
+        .return-label {
+            font-size: 0.875rem;
+            color: #9CA3AF;
+        }
+        .return-value {
+            color: #10B981;
+            margin-left: 0.5rem;
+        }
+        .button {
+            background-color: #059669;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            border: none;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #047857;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Trading Platform</h1>
+            <p class="subtitle">AI-Powered Trading</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card">
+            <h2>Market Data</h2>
+            <div class="grid">
+                <div class="price-card">
+                    <div class="flex">
+                        <div>
+                            <div class="coin-name">Bitcoin</div>
+                            <div class="coin-symbol">BTC</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="price">$59,423.50</div>
+                            <div class="positive">+2.5%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="price-card">
+                    <div class="flex">
+                        <div>
+                            <div class="coin-name">Ethereum</div>
+                            <div class="coin-symbol">ETH</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="price">$3,452.18</div>
+                            <div class="positive">+1.8%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="price-card">
+                    <div class="flex">
+                        <div>
+                            <div class="coin-name">ChainLink</div>
+                            <div class="coin-symbol">LINK</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="price">$14.85</div>
+                            <div class="negative">-0.7%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Trading Strategies</h2>
+            <div>
+                <div class="strategy-card">
+                    <div class="card-header">
+                        <div class="strategy-title">ETH Layer 2 Accumulation</div>
+                        <span class="risk-badge moderate-risk">Moderate Risk</span>
+                    </div>
+                    <div class="strategy-description">
+                        Accumulate ETH on Arbitrum for reduced gas fees
+                    </div>
+                    <div class="card-footer">
+                        <div>
+                            <span class="return-label">Expected Return:</span>
+                            <span class="return-value">4.2%</span>
+                        </div>
+                        <button class="button">Execute</button>
+                    </div>
+                </div>
+
+                <div class="strategy-card">
+                    <div class="card-header">
+                        <div class="strategy-title">Stablecoin Yield Strategy</div>
+                        <span class="risk-badge low-risk">Low Risk</span>
+                    </div>
+                    <div class="strategy-description">
+                        Generate yield on USDC via lending protocols
+                    </div>
+                    <div class="card-footer">
+                        <div>
+                            <span class="return-label">Expected Return:</span>
+                            <span class="return-value">3.5%</span>
+                        </div>
+                        <button class="button">Execute</button>
+                    </div>
+                </div>
+                
+                <div class="strategy-card">
+                    <div class="card-header">
+                        <div class="strategy-title">Rehoboam Balanced Strategy</div>
+                        <span class="risk-badge moderate-risk">Moderate Risk</span>
+                    </div>
+                    <div class="strategy-description">
+                        Deploy capital across multiple L2 solutions with AI guidance
+                    </div>
+                    <div class="card-footer">
+                        <div>
+                            <span class="return-label">Expected Return:</span>
+                            <span class="return-value">5.3%</span>
+                        </div>
+                        <button class="button">Execute</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

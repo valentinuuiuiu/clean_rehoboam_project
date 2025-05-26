@@ -1,0 +1,25 @@
+{
+  "name": "rehoboam-etherscan-analyzer",
+  "version": "1.0.0",
+  "description": "Etherscan blockchain analysis MCP server for Rehoboam",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.5.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "winston": "^3.10.0",
+    "web3": "^4.2.0",
+    "ethers": "^6.7.1",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

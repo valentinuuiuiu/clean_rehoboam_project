@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+ 
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+ 
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+ 
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+ 
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+ 
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+ 
+    --radius: 0.5rem;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Custom toggle switch */
+  .toggle-checkbox:checked {
+    transform: translateX(1rem);
+    border-color: #10B981;
+  }
+  
+  .toggle-checkbox:checked + .toggle-label {
+    background-color: #059669;
+  }
+  
+  /* Chart and graph styles */
+  .chart-container {
+    min-height: 250px;
+    position: relative;
+  }
+  
+  /* Animation for loading states */
+  .pulse-loading {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: .5;
+    }
+  }
+  
+  /* MCP Visualization node styles */
+  .mcp-node {
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    background-color: rgba(30, 64, 175, 0.2);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .mcp-node:hover {
+    background-color: rgba(30, 64, 175, 0.4);
+    transform: translateY(-2px);
+  }
+  
+  .mcp-node--active {
+    border-color: rgba(16, 185, 129, 0.8);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  }
+}

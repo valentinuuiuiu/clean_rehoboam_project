@@ -1,0 +1,284 @@
+version: '3.8'
+
+services:
+  # Main Rehoboam API Server
+  rehoboam-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "5002:5002"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
+      - DATABASE_URL=postgresql://rehoboam:rehoboam123@postgres:5432/rehoboam
+      - API_PORT=5002
+      - MCP_REGISTRY_URL=http://mcp-registry:3001
+      - PYTHON_ENV=docker
+    depends_on:
+      - postgres
+      - mcp-registry
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - rehoboam-network
+
+  # Frontend Vite Server
+  rehoboam-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:5002
+      - VITE_MCP_URL=http://localhost:3001
+    depends_on:
+      - rehoboam-api
+    networks:
+      - rehoboam-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=rehoboam
+      - POSTGRES_USER=rehoboam
+      - POSTGRES_PASSWORD=rehoboam123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - rehoboam-network
+
+  # MCP Registry Service - Central orchestration for all MCP servers
+  mcp-registry:
+    build:
+      context: ./mcp-services
+      dockerfile: Dockerfile.registry
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - REGISTRY_PORT=3001
+      - POSTGRES_URL=postgresql://rehoboam:rehoboam123@postgres:5432/rehoboam
+    depends_on:
+      - postgres
+    volumes:
+      - ./mcp-services/registry:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - rehoboam-network
+
+  # Financial & Trading MCP Servers
+  mcp-crypto-tracker:
+    build:
+      context: ./mcp-services/crypto-tracker
+    ports:
+      - "3100:3000"
+    environment:
+      - MCP_SERVER_NAME=crypto-tracker
+      - REGISTRY_URL=http://mcp-registry:3001
+      - COINGECKO_API_KEY=${COINGECKO_API_KEY:-demo}
+      - COINMARKETCAP_API_KEY=${COINMARKETCAP_API_KEY:-demo}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  mcp-defi-analyzer:
+    build:
+      context: ./mcp-services/defi-analyzer
+    ports:
+      - "3101:3000"
+    environment:
+      - MCP_SERVER_NAME=defi-analyzer
+      - REGISTRY_URL=http://mcp-registry:3001
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+      - DEFILLAMA_API_KEY=${DEFILLAMA_API_KEY:-}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  mcp-chainlink-feeds:
+    build:
+      context: ./mcp-services/chainlink-feeds
+    ports:
+      - "3102:3000"
+    environment:
+      - MCP_SERVER_NAME=chainlink-feeds
+      - REGISTRY_URL=http://mcp-registry:3001
+      - CHAINLINK_API_KEY=${CHAINLINK_API_KEY:-}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  # AI & ML MCP Servers
+  mcp-sentiment-analyzer:
+    build:
+      context: ./mcp-services/sentiment-analyzer
+    ports:
+      - "3200:3000"
+    environment:
+      - MCP_SERVER_NAME=sentiment-analyzer
+      - REGISTRY_URL=http://mcp-registry:3001
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  mcp-news-aggregator:
+    build:
+      context: ./mcp-services/news-aggregator
+    ports:
+      - "3201:3000"
+    environment:
+      - MCP_SERVER_NAME=news-aggregator
+      - REGISTRY_URL=http://mcp-registry:3001
+      - NEWS_API_KEY=${NEWS_API_KEY:-}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  # Developer Tools MCP Servers
+  mcp-github-integration:
+    build:
+      context: ./mcp-services/github-integration
+    ports:
+      - "3300:3000"
+    environment:
+      - MCP_SERVER_NAME=github-integration
+      - REGISTRY_URL=http://mcp-registry:3001
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  # Database MCP Servers
+  mcp-database-connector:
+    build:
+      context: ./mcp-services/database-connector
+    ports:
+      - "3400:3000"
+    environment:
+      - MCP_SERVER_NAME=database-connector
+      - REGISTRY_URL=http://mcp-registry:3001
+      - DATABASE_URL=postgresql://rehoboam:rehoboam123@postgres:5432/rehoboam
+    depends_on:
+      - mcp-registry
+      - postgres
+    networks:
+      - rehoboam-network
+
+  # Security & Monitoring MCP Servers
+  mcp-security-scanner:
+    build:
+      context: ./mcp-services/security-scanner
+    ports:
+      - "3500:3000"
+    environment:
+      - MCP_SERVER_NAME=security-scanner
+      - REGISTRY_URL=http://mcp-registry:3001
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  mcp-system-monitor:
+    build:
+      context: ./mcp-services/system-monitor
+    ports:
+      - "3501:3000"
+    environment:
+      - MCP_SERVER_NAME=system-monitor
+      - REGISTRY_URL=http://mcp-registry:3001
+    depends_on:
+      - mcp-registry
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - rehoboam-network
+
+  # Westworld-inspired Consciousness Layer
+  mcp-consciousness-layer:
+    build:
+      context: ./mcp-services/consciousness-layer
+    ports:
+      - "3600:3000"
+    environment:
+      - MCP_SERVER_NAME=consciousness-layer
+      - REGISTRY_URL=http://mcp-registry:3001
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - mcp-registry
+    networks:
+      - rehoboam-network
+
+  # Redis for caching and real-time data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rehoboam-network
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - rehoboam-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=rehoboam123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - rehoboam-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  rehoboam-network:
+    driver: bridge

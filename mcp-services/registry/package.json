@@ -1,0 +1,33 @@
+{
+  "name": "rehoboam-mcp-registry",
+  "version": "1.0.0",
+  "description": "Central registry and orchestration service for Rehoboam MCP servers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "axios": "^1.5.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "compression": "^1.7.4",
+    "pg": "^8.11.3",
+    "redis": "^4.6.8",
+    "winston": "^3.10.0",
+    "dockerode": "^3.3.5",
+    "uuid": "^9.0.0",
+    "cron": "^2.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

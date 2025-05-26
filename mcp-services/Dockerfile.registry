@@ -1,0 +1,34 @@
+# MCP Registry Service - Central orchestration for all MCP servers
+FROM node:18-alpine
+
+# Install Docker CLI for container management
+RUN apk add --no-cache docker-cli
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV REGISTRY_PORT=3001
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+# Run the registry service
+CMD ["node", "index.js"]

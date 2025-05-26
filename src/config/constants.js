@@ -1,0 +1,17 @@
+export const TRADING_PAIRS = [
+  'BTCUSDT',
+  'ETHUSDT',
+  'BNBUSDT',
+  'SOLUSDT',
+  'ADAUSDT',
+  'DOTUSDT',
+  'MATICUSDT',
+  'AVAXUSDT',
+  'DOGEUSDT',
+  'LINKUSDT',
+  'XRPUSDT',
+  'UNIUSDT',
+  'AAVEUSDT',
+  'ATOMUSDT',
+  'LTCUSDT'
+];

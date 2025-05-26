@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Descărcare fișiere</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .download-link {
+            display: inline-block;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background-color: #4f46e5;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .download-link:hover {
+            background-color: #4338ca;
+        }
+        .primary {
+            background-color: #4f46e5;
+        }
+        .secondary {
+            background-color: #f97316;
+        }
+        .info {
+            background-color: #0ea5e9;
+        }
+        .note {
+            background-color: #f3f4f6;
+            border-left: 4px solid #9ca3af;
+            padding: 10px;
+            margin: 10px 0;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <h1>Descărcare fișiere proiect</h1>
+    <p>Click pe link-urile de mai jos pentru a descărca arhivele:</p>
+    
+    <div class="note">
+        <strong>Notă importantă:</strong> Pentru a utiliza aceste fișiere, descarcă arhiva dorită, apoi dezarhivează conținutul într-un director local pe calculatorul tău și deschide-l în VSCode sau editorul tău preferat.
+    </div>
+    
+    <div>
+        <a class="download-link primary" href="full-project-export.tar.gz">Descarcă proiectul complet (383KB)</a>
+        <p>Această arhivă conține structura completă a proiectului, inclusiv codul sursă și fișierele de configurare, fără module și cache-uri mari.</p>
+    </div>
+    
+    <div>
+        <a class="download-link secondary" href="marketro.tar.gz">Descarcă doar MarketRO (25MB)</a>
+        <p>Această arhivă conține doar proiectul MarketRO, inclusiv node_modules.</p>
+    </div>
+    
+    <div>
+        <a class="download-link info" href="main-project.tar.gz">Descarcă doar fișierele principale (155KB)</a>
+        <p>Această arhivă conține doar fișierele principale din directorul rădăcină.</p>
+    </div>
+</body>
+</html>
