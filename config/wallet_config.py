@@ -6,9 +6,37 @@ for the Rehoboam AI trading system.
 """
 
 import os
+from datetime import datetime
 from typing import Dict, List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+class SecurityError(Exception):
+    """Custom security exception"""
+    pass
+
+class WalletSecurity:
+    """Secure wallet key management"""
+    def __init__(self):
+        private_key = os.getenv('WALLET_PRIVATE_KEY')
+        if not private_key:
+            raise ValueError("WALLET_PRIVATE_KEY must be set in environment")
+        self._private_key = private_key if private_key.startswith('0x') else f'0x{private_key}'
+        self._key_usage_count = 0
+        self._last_used = None
+
+    @property
+    def private_key(self) -> str:
+        """Get private key with usage tracking"""
+        if self._key_usage_count > 10:
+            raise SecurityError("Private key usage limit exceeded")
+        self._key_usage_count += 1
+        self._last_used = datetime.now()
+        return self._private_key
+
+    def clear_key(self):
+        """Securely clear key from memory"""
+        self._private_key = None
+        self._key_usage_count = 0
 
 class WalletType(Enum):
     """Supported wallet types"""
@@ -38,6 +66,7 @@ class WalletConfig:
     auto_rebalance: bool = True
     stop_loss_threshold: float = 0.05  # 5% stop loss
     take_profit_threshold: float = 0.2  # 20% take profit
+    security: WalletSecurity = field(default_factory=WalletSecurity)
 
 # Primary user wallet configuration
 USER_WALLET_ADDRESS = "0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8"
@@ -271,6 +300,7 @@ def get_defi_protocols(network: NetworkType) -> Dict:
 def get_token_address(token_symbol: str, network: NetworkType) -> Optional[str]:
     """Get token contract address for a specific network"""
     return MAJOR_TOKENS.get(token_symbol.upper(), {}).get(network)
+
 
 def is_wallet_address_valid(address: str) -> bool:
     """Validate if an Ethereum address is properly formatted"""
