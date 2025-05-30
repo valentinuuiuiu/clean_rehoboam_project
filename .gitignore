@@ -90,3 +90,44 @@ coverage.xml
 # Others
 .sass-cache/
 .cache/
+
+# SECURITY - NEVER COMMIT THESE
+**/*private*
+**/*secret*
+**/*key*
+**/wallet*
+**/.secret
+**/keys/
+**/secrets/
+*.pem
+*.p12
+*.key
+*.keystore
+
+# Blockchain & Crypto
+**/broadcast/
+**/cache/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+**/foundry.toml
+foundry.toml
+
+# Environment and Config with Secrets
+.env*
+config.json
+secrets.json
+private.json
+wallet.json
+keyfile.json
+
+# Deployment artifacts that might contain addresses
+deployment-*.json
+deploy-*.log
+transaction-*.json
+
+# Any file with "private" in name
+*private*
+*PRIVATE*
+*secret*
+*SECRET*
