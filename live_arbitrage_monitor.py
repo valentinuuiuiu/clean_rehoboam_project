@@ -22,9 +22,7 @@ SUSHISWAP_URL = "https://api.thegraph.com/subgraphs/name/sushiswap/exchange"
 # Popular trading pairs to monitor
 TRADING_PAIRS = [
     {"token0": "0xA0b86a33E6417c2d4F65Fb45D03bAaAc3c3cf2FB", "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "symbol": "COMP/WETH"},
-    {"token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "token1": "0xA0b86a33E6417c2d4F65Fb45D03bAaAc3c3cf2FB", "symbol": "DAI/COMP"},
-    {"token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "token1": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "symbol": "WETH/DAI"},
-    {"token0": "0xA0b86a33E6417c2d4F65Fb45D03bAaAc3c3cf2FB", "token1": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "symbol": "COMP/DAI"},
+    {"token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "token1": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "symbol": "WETH/USDC"}
 ]
 
 class ArbitrageMonitor:
