@@ -22,6 +22,7 @@ from utils.layer2_trading import (
     Layer2TradingException
 )
 from utils.web_data import WebDataFetcher
+from utils.arbitrage_service import arbitrage_service
 
 # Import our API routers
 from api_companions import router as companions_router
@@ -60,7 +61,7 @@ ws_server.connection_manager = ConnectionManager()
 # Initialize our Layer 2 components
 web_data = WebDataFetcher()
 gas_estimator = Layer2GasEstimator()
-arbitrage = Layer2Arbitrage()
+# arbitrage = Layer2Arbitrage()  # Now using arbitrage_service
 liquidation = Layer2Liquidation()
 trading_optimizer = Layer2TradingOptimizer()
 
@@ -913,11 +914,12 @@ async def estimate_bridging_costs(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/arbitrage/opportunities")
-async def get_arbitrage_opportunities(token: str = Query("ETH", title="Token Symbol")):
+async def get_arbitrage_opportunities(token: str = Query("ETH", title="Token Symbol"), limit: int = Query(10, title="Max opportunities")):
     """Get arbitrage opportunities for a specific token."""
     try:
-        opportunities = arbitrage.analyze_price_differences(token)
+        opportunities = await arbitrage_service.get_opportunities(token, limit)
         return {
+            "success": True,
             "token": token,
             "opportunities": opportunities,
             "count": len(opportunities),
@@ -931,14 +933,131 @@ async def get_arbitrage_opportunities(token: str = Query("ETH", title="Token Sym
 async def get_arbitrage_strategies():
     """Get arbitrage strategies across multiple tokens."""
     try:
-        strategies = arbitrage.get_arbitrage_strategies()
+        strategies = await arbitrage_service.get_strategies()
         return {
+            "success": True,
             "strategies": strategies,
             "count": len(strategies),
             "timestamp": asyncio.get_event_loop().time()
         }
     except Exception as e:
         logger.error(f"Error getting arbitrage strategies: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/arbitrage/bots")
+async def get_arbitrage_bots():
+    """Get status of all arbitrage bots."""
+    try:
+        bots_status = arbitrage_service.get_bot_status()
+        return {
+            "success": True,
+            "bots": bots_status,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    except Exception as e:
+        logger.error(f"Error getting arbitrage bots status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/arbitrage/bots/{bot_id}")
+async def get_arbitrage_bot(bot_id: str):
+    """Get status of a specific arbitrage bot."""
+    try:
+        bot_status = arbitrage_service.get_bot_status(bot_id)
+        if "error" in bot_status:
+            raise HTTPException(status_code=404, detail=bot_status["error"])
+        return {
+            "success": True,
+            "bot": bot_status,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting arbitrage bot {bot_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/arbitrage/bots/{bot_id}/start")
+async def start_arbitrage_bot(bot_id: str, config: Optional[Dict[str, Any]] = Body(None)):
+    """Start an arbitrage bot."""
+    try:
+        success = await arbitrage_service.start_bot(bot_id, config)
+        if success:
+            return {
+                "success": True,
+                "message": f"Bot {bot_id} started successfully",
+                "timestamp": asyncio.get_event_loop().time()
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Failed to start bot {bot_id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting arbitrage bot {bot_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/arbitrage/bots/{bot_id}/stop")
+async def stop_arbitrage_bot(bot_id: str):
+    """Stop an arbitrage bot."""
+    try:
+        success = await arbitrage_service.stop_bot(bot_id)
+        if success:
+            return {
+                "success": True,
+                "message": f"Bot {bot_id} stopped successfully",
+                "timestamp": asyncio.get_event_loop().time()
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Failed to stop bot {bot_id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error stopping arbitrage bot {bot_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ArbitrageExecutionRequest(BaseModel):
+    opportunity: Dict[str, Any] = Field(..., description="Arbitrage opportunity data")
+    amount: float = Field(..., description="Amount to trade", gt=0)
+
+@app.post("/api/arbitrage/execute")
+async def execute_arbitrage(request: ArbitrageExecutionRequest):
+    """Execute an arbitrage opportunity."""
+    try:
+        result = await arbitrage_service.execute_arbitrage(request.opportunity, request.amount)
+        return {
+            "success": result.get("success", False),
+            "result": result,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    except Exception as e:
+        logger.error(f"Error executing arbitrage: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/arbitrage/monitoring/start")
+async def start_arbitrage_monitoring():
+    """Start continuous arbitrage monitoring."""
+    try:
+        await arbitrage_service.start_monitoring()
+        return {
+            "success": True,
+            "message": "Arbitrage monitoring started",
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    except Exception as e:
+        logger.error(f"Error starting arbitrage monitoring: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/arbitrage/monitoring/stop")
+async def stop_arbitrage_monitoring():
+    """Stop continuous arbitrage monitoring."""
+    try:
+        await arbitrage_service.stop_monitoring()
+        return {
+            "success": True,
+            "message": "Arbitrage monitoring stopped",
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    except Exception as e:
+        logger.error(f"Error stopping arbitrage monitoring: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class LiquidationRequest(BaseModel):
@@ -1052,7 +1171,7 @@ async def arbitrage_websocket(websocket: WebSocket):
     if await ws_server.connect(websocket, client_id):
         try:
             # Send initial arbitrage data
-            strategies = arbitrage.get_arbitrage_strategies()
+            strategies = await arbitrage_service.get_strategies()
             await websocket.send_json({
                 "type": "arbitrage_update",
                 "data": {
@@ -1061,6 +1180,19 @@ async def arbitrage_websocket(websocket: WebSocket):
                 }
             })
             
+            # Register callback for real-time updates
+            def arbitrage_callback(event_type: str, data: Any):
+                try:
+                    asyncio.create_task(websocket.send_json({
+                        "type": event_type,
+                        "data": data,
+                        "timestamp": asyncio.get_event_loop().time()
+                    }))
+                except Exception as e:
+                    logger.error(f"Error sending WebSocket update: {str(e)}")
+            
+            arbitrage_service.register_callback(arbitrage_callback)
+            
             # Listen for client messages
             while True:
                 message = await websocket.receive_json()
@@ -1068,8 +1200,9 @@ async def arbitrage_websocket(websocket: WebSocket):
                 # Handle client requests for specific tokens
                 if message.get("type") == "get_arbitrage":
                     token = message.get("token", "ETH")
+                    limit = message.get("limit", 10)
                     try:
-                        opportunities = arbitrage.analyze_price_differences(token)
+                        opportunities = await arbitrage_service.get_opportunities(token, limit)
                         await websocket.send_json({
                             "type": "arbitrage_update",
                             "data": {
@@ -1084,6 +1217,41 @@ async def arbitrage_websocket(websocket: WebSocket):
                             "type": "error",
                             "error": str(e)
                         })
+                
+                # Handle bot control requests
+                elif message.get("type") == "start_bot":
+                    bot_id = message.get("bot_id")
+                    config = message.get("config", {})
+                    if bot_id:
+                        success = await arbitrage_service.start_bot(bot_id, config)
+                        await websocket.send_json({
+                            "type": "bot_control_response",
+                            "data": {
+                                "action": "start",
+                                "bot_id": bot_id,
+                                "success": success
+                            }
+                        })
+                
+                elif message.get("type") == "stop_bot":
+                    bot_id = message.get("bot_id")
+                    if bot_id:
+                        success = await arbitrage_service.stop_bot(bot_id)
+                        await websocket.send_json({
+                            "type": "bot_control_response",
+                            "data": {
+                                "action": "stop",
+                                "bot_id": bot_id,
+                                "success": success
+                            }
+                        })
+                
+                elif message.get("type") == "get_bots":
+                    bots_status = arbitrage_service.get_bot_status()
+                    await websocket.send_json({
+                        "type": "bots_status",
+                        "data": bots_status
+                    })
                 
                 await asyncio.sleep(0.1)  # Prevent tight loop
                 
