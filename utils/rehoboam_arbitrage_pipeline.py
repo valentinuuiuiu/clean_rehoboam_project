@@ -26,6 +26,7 @@ from enum import Enum
 # Import core Rehoboam systems
 from consciousness_core import RehoboamConsciousness
 from utils.rehoboam_ai import RehoboamAI
+from utils.rehoboam_visualizer import rehoboam_visualizer
 from conscious_trading_agent import ConsciousTradingAgent
 from utils.conscious_arbitrage_engine import conscious_arbitrage_engine
 from utils.arbitrage_service import arbitrage_service
@@ -115,6 +116,19 @@ class RehoboamArbitragePipeline:
         }
         
         self.is_running = False
+        
+        # Initialize visualizer integration
+        self.visualizer = rehoboam_visualizer
+        
+        # Track pipeline metrics
+        self.metrics = {
+            'total_opportunities_processed': 0,
+            'successful_executions': 0,
+            'total_profit': 0.0,
+            'consciousness_decisions': 0,
+            'human_benefit_score': 0.0,
+            'pipeline_efficiency': 0.0
+        }
         
     async def initialize(self):
         """Initialize the Rehoboam arbitrage pipeline"""
