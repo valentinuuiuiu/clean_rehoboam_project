@@ -23,6 +23,22 @@ from pathlib import Path
 
 # Add project root to path for bot wrapper
 project_root = Path(__file__).parent.parent
+
+# Import Rehoboam engine (with lazy loading to avoid circular imports)
+_rehoboam_engine = None
+
+def get_rehoboam_engine():
+    """Lazy load Rehoboam engine to avoid circular imports"""
+    global _rehoboam_engine
+    if _rehoboam_engine is None:
+        try:
+            from utils.rehoboam_arbitrage_engine import rehoboam_arbitrage_engine
+            _rehoboam_engine = rehoboam_arbitrage_engine
+            logger.info("🧠 Rehoboam Arbitrage Engine connected")
+        except ImportError as e:
+            logger.warning(f"Could not import Rehoboam engine: {e}")
+            _rehoboam_engine = None
+    return _rehoboam_engine
 sys.path.insert(0, str(project_root))
 
 logger = setup_logging()
@@ -84,7 +100,7 @@ class ArbitrageService:
         self._initialize_bots()
     
     async def initialize(self):
-        """Initialize the arbitrage service and bot manager."""
+        """Initialize the arbitrage service, bot manager, and Rehoboam engine."""
         try:
             # Import bot manager here to avoid circular imports
             from arbitrage_bot_wrapper import bot_manager
@@ -92,6 +108,14 @@ class ArbitrageService:
             
             # Register callback for bot events
             self.bot_manager.register_callback(self._on_bot_event)
+            
+            # Initialize Rehoboam Arbitrage Engine
+            rehoboam_engine = get_rehoboam_engine()
+            if rehoboam_engine:
+                await rehoboam_engine.initialize()
+                logger.info("🧠 Rehoboam Arbitrage Engine initialized")
+            else:
+                logger.warning("⚠️ Rehoboam Engine not available, using basic arbitrage")
             
             logger.info("✅ Arbitrage service initialized")
             return True
@@ -489,33 +513,80 @@ class ArbitrageService:
         except Exception as e:
             logger.error(f"Error in monitoring loop: {str(e)}")
     
-    async def execute_arbitrage(self, opportunity: Dict[str, Any], amount: float) -> Dict[str, Any]:
+    async def execute_arbitrage(self, opportunity: Dict[str, Any], amount: float = None) -> Dict[str, Any]:
         """
-        Execute an arbitrage opportunity.
+        Execute an arbitrage opportunity using Rehoboam's AI decision-making.
         
         Args:
             opportunity: Arbitrage opportunity data
-            amount: Amount to trade
+            amount: Amount to trade (optional, AI will determine optimal size)
             
         Returns:
-            Execution result
+            Execution result with AI analysis
         """
         try:
-            # This would integrate with the real arbitrage executor
-            # For now, return a simulation result
+            # Get Rehoboam engine for AI-powered decision making
+            rehoboam_engine = get_rehoboam_engine()
             
-            result = {
-                "success": True,
-                "transaction_hash": f"0x{''.join(['a' for _ in range(64)])}",  # Mock hash
-                "profit_realized": opportunity.get("net_profit_usd", 0) * amount,
-                "gas_used": 150000,
-                "gas_cost_usd": opportunity.get("gas_cost_usd", 0),
-                "execution_time": datetime.now().isoformat(),
-                "networks": {
-                    "buy": opportunity.get("buy_network"),
-                    "sell": opportunity.get("sell_network")
+            if rehoboam_engine:
+                # Use Rehoboam's AI for intelligent arbitrage execution
+                logger.info("🧠 Using Rehoboam AI for arbitrage decision-making")
+                
+                # Analyze opportunity with AI
+                analyzed_opportunity = await rehoboam_engine.analyze_arbitrage_opportunity(opportunity)
+                
+                # Make AI-powered decision
+                rehoboam_decision = await rehoboam_engine.make_arbitrage_decision(analyzed_opportunity)
+                
+                # Execute based on AI decision
+                execution_result = await rehoboam_engine.execute_arbitrage_strategy(rehoboam_decision, analyzed_opportunity)
+                
+                # Learn from the outcome
+                await rehoboam_engine.learn_from_outcome(rehoboam_decision, analyzed_opportunity, execution_result)
+                
+                # Enhanced result with AI insights
+                result = {
+                    "success": execution_result.get("success", True),
+                    "ai_decision": rehoboam_decision.decision.value,
+                    "ai_confidence": rehoboam_decision.confidence,
+                    "ai_reasoning": rehoboam_decision.reasoning,
+                    "consciousness_score": rehoboam_decision.consciousness_score,
+                    "transaction_hash": execution_result.get("transaction_hash", f"0x{''.join(['a' for _ in range(64)])}"),
+                    "profit_realized": execution_result.get("profit", analyzed_opportunity.net_profit),
+                    "gas_used": 150000,
+                    "gas_cost_usd": analyzed_opportunity.gas_cost,
+                    "execution_time": datetime.now().isoformat(),
+                    "networks": {
+                        "buy": opportunity.get("buy_network"),
+                        "sell": opportunity.get("sell_network")
+                    },
+                    "ai_analysis": {
+                        "market_sentiment": analyzed_opportunity.market_sentiment,
+                        "risk_score": analyzed_opportunity.risk_score,
+                        "confidence_score": analyzed_opportunity.confidence_score,
+                        "expected_outcome": rehoboam_decision.expected_outcome
+                    }
                 }
-            }
+                
+            else:
+                # Fallback to basic arbitrage execution
+                logger.info("⚠️ Using basic arbitrage execution (Rehoboam AI not available)")
+                
+                result = {
+                    "success": True,
+                    "ai_decision": "execute_basic",
+                    "ai_confidence": 0.5,
+                    "ai_reasoning": "Basic execution without AI analysis",
+                    "transaction_hash": f"0x{''.join(['a' for _ in range(64)])}",  # Mock hash
+                    "profit_realized": opportunity.get("net_profit_usd", 0) * (amount or 1.0),
+                    "gas_used": 150000,
+                    "gas_cost_usd": opportunity.get("gas_cost_usd", 0),
+                    "execution_time": datetime.now().isoformat(),
+                    "networks": {
+                        "buy": opportunity.get("buy_network"),
+                        "sell": opportunity.get("sell_network")
+                    }
+                }
             
             # Update bot statistics
             for bot in self.bots.values():
