@@ -51,7 +51,7 @@ class ConsciousTradingAgent:
         await self.consciousness.awaken_consciousness()
         
         # Validate configuration
-        if not self.config.validate_config():
+        if not self.config.validate():
             logger.error("❌ Configuration validation failed")
             return False
         
