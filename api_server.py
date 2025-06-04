@@ -2225,6 +2225,169 @@ async def calibrate_ai_models():
         logger.error(f"Error calibrating AI models: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Rehoboam Unified System Endpoints
+
+@app.post("/api/rehoboam/system/initialize")
+async def initialize_rehoboam_system():
+    """Initialize the complete Rehoboam unified system."""
+    try:
+        from rehoboam_unified_system import rehoboam_system
+        
+        success = await rehoboam_system.initialize()
+        
+        return {
+            "success": success,
+            "timestamp": datetime.now().isoformat(),
+            "message": "Rehoboam unified system initialized" if success else "Failed to initialize system",
+            "system_status": await rehoboam_system.get_system_status() if success else None
+        }
+        
+    except Exception as e:
+        logger.error(f"Error initializing Rehoboam system: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rehoboam/system/process-opportunity")
+async def process_opportunity_unified(opportunity_data: Dict[str, Any]):
+    """Process an arbitrage opportunity through the complete Rehoboam system."""
+    try:
+        from rehoboam_unified_system import rehoboam_system
+        
+        result = await rehoboam_system.process_opportunity(opportunity_data)
+        
+        return {
+            "success": result.get("success", False),
+            "timestamp": datetime.now().isoformat(),
+            "processing_result": result
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing opportunity: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/rehoboam/system/status")
+async def get_unified_system_status():
+    """Get comprehensive Rehoboam unified system status."""
+    try:
+        from rehoboam_unified_system import rehoboam_system
+        
+        status = await rehoboam_system.get_system_status()
+        detailed_metrics = await rehoboam_system.get_detailed_metrics()
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "system_status": {
+                "rehoboam_active": status.rehoboam_active,
+                "pipeline_active": status.pipeline_active,
+                "orchestrator_active": status.orchestrator_active,
+                "arbitrage_service_active": status.arbitrage_service_active,
+                "active_bots": status.active_bots,
+                "processed_opportunities": status.processed_opportunities,
+                "success_rate": status.success_rate,
+                "consciousness_score": status.consciousness_score
+            },
+            "detailed_metrics": detailed_metrics
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting system status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rehoboam/system/configure-bot")
+async def configure_bot_mode(bot_id: str, mode: str):
+    """Configure bot operation mode (autonomous, supervised, manual, learning)."""
+    try:
+        from rehoboam_unified_system import rehoboam_system
+        
+        valid_modes = ["autonomous", "supervised", "manual", "learning"]
+        if mode not in valid_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid mode. Must be one of: {valid_modes}")
+        
+        success = await rehoboam_system.configure_bot_mode(bot_id, mode)
+        
+        return {
+            "success": success,
+            "timestamp": datetime.now().isoformat(),
+            "bot_id": bot_id,
+            "new_mode": mode,
+            "message": f"Bot {bot_id} configured to {mode} mode" if success else "Failed to configure bot"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error configuring bot mode: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rehoboam/system/autonomous-mode")
+async def start_autonomous_mode():
+    """Start autonomous arbitrage mode with full AI control."""
+    try:
+        from rehoboam_unified_system import rehoboam_system
+        
+        await rehoboam_system.start_autonomous_mode()
+        
+        return {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "message": "Autonomous arbitrage mode activated",
+            "warning": "All bots are now under full AI control"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting autonomous mode: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rehoboam/system/emergency-stop")
+async def emergency_stop_system():
+    """Emergency stop all bot operations."""
+    try:
+        from rehoboam_unified_system import rehoboam_system
+        
+        await rehoboam_system.emergency_stop()
+        
+        return {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "message": "Emergency stop executed - all bots stopped",
+            "action": "All bots set to manual mode"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during emergency stop: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/rehoboam/pipeline/metrics")
+async def get_pipeline_metrics():
+    """Get Rehoboam pipeline performance metrics."""
+    try:
+        from utils.rehoboam_pipeline import rehoboam_pipeline
+        
+        metrics = rehoboam_pipeline.get_metrics()
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "pipeline_metrics": metrics
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting pipeline metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/rehoboam/orchestrator/status")
+async def get_orchestrator_status():
+    """Get bot orchestrator status and performance."""
+    try:
+        from utils.bot_orchestrator import bot_orchestrator
+        
+        status = await bot_orchestrator.get_orchestration_status()
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "orchestrator_status": status
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting orchestrator status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Error handling
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):

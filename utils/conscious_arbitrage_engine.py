@@ -28,7 +28,7 @@ import numpy as np
 # Import Rehoboam core systems
 from consciousness_core import RehoboamConsciousness, ConsciousnessState
 from utils.rehoboam_ai import RehoboamAI
-from utils.advanced_reasoning import ModelRequest, MultiModelOrchestrator
+from utils.advanced_reasoning import ModelRequest, MultimodalOrchestrator
 from utils.trading_orchestrator import AITradingOrchestrator
 from utils.ai_market_analyzer import market_analyzer
 from utils.arbitrage_service import ArbitrageService
@@ -71,7 +71,7 @@ class ConsciousArbitrageEngine:
         # Core Rehoboam systems
         self.consciousness = RehoboamConsciousness()
         self.rehoboam_ai = RehoboamAI()
-        self.model_orchestrator = MultiModelOrchestrator()
+        self.model_orchestrator = MultimodalOrchestrator()
         self.trading_orchestrator = AITradingOrchestrator()
         
         # Base arbitrage service
@@ -110,9 +110,6 @@ class ConsciousArbitrageEngine:
         
         # Initialize base arbitrage service
         await self.arbitrage_service.initialize()
-        
-        # Initialize AI systems
-        await self.trading_orchestrator.initialize()
         
         logger.info("✨ Conscious Arbitrage Engine initialized with consciousness level: {:.2f}".format(
             self.consciousness_state.awareness_level

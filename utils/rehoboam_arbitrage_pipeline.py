@@ -26,7 +26,7 @@ from enum import Enum
 # Import core Rehoboam systems
 from consciousness_core import RehoboamConsciousness
 from utils.rehoboam_ai import RehoboamAI
-from utils.conscious_trading_agent import ConsciousTradingAgent
+from conscious_trading_agent import ConsciousTradingAgent
 from utils.conscious_arbitrage_engine import conscious_arbitrage_engine
 from utils.arbitrage_service import arbitrage_service
 
