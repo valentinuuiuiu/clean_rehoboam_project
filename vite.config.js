@@ -68,7 +68,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5001,  // Frontend runs on 5001
+    port: 12000,  // Frontend runs on 12000
     strictPort: false, // Allow fallback to next available port
     hmr: {
       clientPort: process.env.CODESPACES ? 443 : undefined, // Let it auto-detect port
@@ -82,7 +82,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5002',  // Backend API on 5002 using IPv4 explicitly
+        target: 'http://127.0.0.1:12001',  // Backend API on 12001 using IPv4 explicitly
         changeOrigin: true,
         secure: false,
         ws: true, // Enable WebSocket for API
@@ -99,7 +99,7 @@ export default defineConfig({
         }
       },
       '/ws': {
-        target: 'ws://127.0.0.1:5002',    // Backend WebSocket on 5002 (IPv4)
+        target: 'ws://127.0.0.1:12001',    // Backend WebSocket on 12001 (IPv4)
         ws: true,
         changeOrigin: true,
         secure: false

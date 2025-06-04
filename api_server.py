@@ -1395,12 +1395,15 @@ async def general_exception_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting API server on http://0.0.0.0:5002")
-    # Using port 5002 to avoid conflict with Simple Server on port 5000
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    port = int(os.getenv('API_PORT', 12001))
+    print(f"Starting API server on http://0.0.0.0:{port}")
     uvicorn.run(
         "api_server:app", 
         host="0.0.0.0", 
-        port=5002, 
+        port=port, 
         reload=False,  # Disable reload to avoid multiple instances
         log_level="info"
     )
