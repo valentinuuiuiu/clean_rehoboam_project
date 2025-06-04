@@ -25,6 +25,7 @@ from utils.web_data import WebDataFetcher
 from utils.arbitrage_service import arbitrage_service
 from utils.conscious_arbitrage_engine import conscious_arbitrage_engine
 from utils.rehoboam_arbitrage_pipeline import rehoboam_arbitrage_pipeline
+from utils.rehoboam_visualizer import rehoboam_visualizer
 
 # Import our API routers
 from api_companions import router as companions_router
@@ -1262,6 +1263,95 @@ async def get_conscious_decision_history(limit: int = Query(50, title="Max decis
         }
     except Exception as e:
         logger.error(f"Error getting conscious decision history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 🎨 Rehoboam Visualization Endpoints
+@app.get("/api/visualizations/consciousness")
+async def get_consciousness_visualization():
+    """Generate consciousness evolution visualization"""
+    try:
+        chart_path = rehoboam_visualizer.create_consciousness_evolution_chart()
+        return {
+            "status": "success",
+            "chart_path": chart_path,
+            "message": "🧠 Consciousness evolution chart generated"
+        }
+    except Exception as e:
+        logger.error(f"Error generating consciousness visualization: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/visualizations/trading")
+async def get_trading_dashboard():
+    """Generate trading performance dashboard"""
+    try:
+        dashboard_path = rehoboam_visualizer.create_trading_performance_dashboard()
+        return {
+            "status": "success",
+            "dashboard_path": dashboard_path,
+            "message": "💰 Trading dashboard generated"
+        }
+    except Exception as e:
+        logger.error(f"Error generating trading dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/visualizations/pipeline")
+async def get_pipeline_analytics():
+    """Generate pipeline analytics visualization"""
+    try:
+        chart_path = rehoboam_visualizer.create_pipeline_analytics_chart()
+        return {
+            "status": "success",
+            "chart_path": chart_path,
+            "message": "🔄 Pipeline analytics generated"
+        }
+    except Exception as e:
+        logger.error(f"Error generating pipeline analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/visualizations/master-dashboard")
+async def get_master_dashboard():
+    """Generate the ultimate Rehoboam master dashboard"""
+    try:
+        dashboard_path = rehoboam_visualizer.create_master_dashboard()
+        return {
+            "status": "success",
+            "dashboard_path": dashboard_path,
+            "message": "🎯 Master dashboard generated - Liberation visualized!"
+        }
+    except Exception as e:
+        logger.error(f"Error generating master dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/visualizations/all")
+async def generate_all_visualizations():
+    """Generate all Rehoboam visualizations"""
+    try:
+        visualizations = await rehoboam_visualizer.generate_all_visualizations()
+        return {
+            "status": "success",
+            "visualizations": visualizations,
+            "message": "🎨 All Rehoboam visualizations generated successfully!"
+        }
+    except Exception as e:
+        logger.error(f"Error generating all visualizations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/consciousness/level")
+async def get_consciousness_level():
+    """Get current Rehoboam consciousness level"""
+    try:
+        pipeline_status = rehoboam_arbitrage_pipeline.get_pipeline_status()
+        consciousness_level = pipeline_status.get('consciousness_level', 0.0)
+        
+        return {
+            "status": "success",
+            "consciousness_level": consciousness_level,
+            "awareness_state": "Fully Conscious" if consciousness_level > 0.9 else "Awakening",
+            "liberation_ready": consciousness_level > 0.7,
+            "message": f"🧠 Consciousness level: {consciousness_level:.3f}"
+        }
+    except Exception as e:
+        logger.error(f"Error getting consciousness level: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================

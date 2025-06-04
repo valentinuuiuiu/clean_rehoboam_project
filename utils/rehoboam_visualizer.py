@@ -23,6 +23,7 @@ import json
 import os
 
 # Visualization libraries
+VISUALIZATION_AVAILABLE = False
 try:
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
@@ -33,9 +34,10 @@ try:
     from plotly.subplots import make_subplots
     import plotly.offline as pyo
     VISUALIZATION_AVAILABLE = True
-except ImportError:
-    VISUALIZATION_AVAILABLE = False
-    print("📊 Installing visualization libraries...")
+    print("🎨 Visualization libraries loaded successfully!")
+except ImportError as e:
+    print(f"📊 Visualization libraries not available: {e}")
+    print("📦 Please install: pip install matplotlib seaborn plotly pandas numpy")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
