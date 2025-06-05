@@ -17,41 +17,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import our custom modules
-from utils.websocket_server import EnhancedWebSocketServer as WebSocketServer
-from utils.rehoboam_ai import RehoboamAI
-from utils.network_config import network_config
-from utils.layer2_trading import (
-    Layer2GasEstimator, 
-    Layer2Arbitrage,
-    Layer2Liquidation,
-    Layer2TradingOptimizer,
-    Layer2TradingException
+from utils import (
+    WebSocketServer,
+    RehoboamAI,
+    network_config,
+    WebDataFetcher,
+    arbitrage_service
 )
-from utils.web_data import WebDataFetcher
-from utils.arbitrage_service import arbitrage_service
-from utils.conscious_arbitrage_engine import conscious_arbitrage_engine
-from utils.rehoboam_arbitrage_pipeline import rehoboam_arbitrage_pipeline
-from utils.rehoboam_visualizer import rehoboam_visualizer
 
-# Import our API routers
-from api_companions import router as companions_router
-from api_mcp import router as mcp_router, register_mcp_function, record_mcp_function_execution
-from utils.web3_service import web3_service
+# Consolidated routers and services
+from api_routers import companions_router, mcp_router
+from utils import web3_service
 
 import logging
 logger = logging.getLogger(__name__)
 
-# JWT configuration
-JWT_SECRET = "your-secret-key"  # Change this to a secure secret key
-JWT_ALGORITHM = "HS256"
+# Auth configuration
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-async def get_user_id_from_token(token: str) -> str:
-    """Verify JWT token and return user_id."""
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
+    """Verify and return user from JWT token."""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload.get("user_id")
-    except jwt.InvalidTokenError:
-        return None
+        payload = jwt.decode(token, os.getenv("JWT_SECRET"), algorithms=["HS256"])
+        return payload.get("sub")
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication credentials",
+        )
 
 app = FastAPI(
     title="Web3 Trading Agent API with Layer 2 Support", 

@@ -29,6 +29,55 @@ class AITradingOrchestrator:
         """Initialize the trading orchestrator with all core components."""
         # Core AI systems
         self.rehoboam = RehoboamAI()
+        self.llm_decision_cache = {}  # Cache for LLM-enhanced decisions
+        self.llm_prompt_template = {
+            'system': "You are a trading strategy enhancer. Analyze the proposed trade and suggest improvements.",
+            'user': """Given market conditions: {market_conditions}
+            
+            Proposed trade: {decision}
+            
+            Please analyze and suggest enhancements considering:
+            1. Risk/reward ratio
+            2. Market volatility
+            3. Gas cost implications
+            4. Portfolio balance"""
+        }
+
+    async def llm_enhance_decision(self, context: Dict) -> Dict:
+        """Enhance trading decision with LLM reasoning."""
+        try:
+            # Get base analysis from Rehoboam AI
+            analysis = await self.rehoboam.analyze_context(context)
+            
+            # Apply multi-model enhancement
+            enhanced_decision = {
+                **context['decision'],
+                'llm_analysis': analysis,
+                'confidence': analysis.get('confidence', 0.7),
+                'reasoning': analysis.get('reasoning', 'Standard trade signal')
+            }
+            
+            # Cache the enhanced decision
+            decision_hash = hash(json.dumps(context, sort_keys=True))
+            self.llm_decision_cache[decision_hash] = enhanced_decision
+            
+            return enhanced_decision
+            
+        except Exception as e:
+            logger.error(f"LLM decision enhancement failed: {str(e)}")
+            return context['decision']
+        self.llm_prompt_template = {
+            'system': "You are a trading strategy enhancer. Analyze the proposed trade and suggest improvements.",
+            'user': """Given market conditions: {market_conditions}
+            
+            Proposed trade: {decision}
+            
+            Please analyze and suggest enhancements considering:
+            1. Risk/reward ratio
+            2. Market volatility
+            3. Gas cost implications
+            4. Portfolio balance"""
+        }
         
         # Network and trading infrastructure
         self.network_config = NetworkConfig()
