@@ -1,0 +1,84 @@
+
+name: Rehoboam Hybrid Pipeline
+
+on:
+  push:
+    branches: [main, feat/*, pipeline/*]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: npm ci && pip install -r requirements.txt
+    - run: npm run build
+    - run: python -m pytest tests/
+
+  integration:
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports: [6379:6379]
+    steps:
+    - uses: actions/checkout@v4
+    - run: |
+        echo "Starting Rehoboam integration tests"
+        npm run test:integration
+        python -m pytest tests/integration/
+        curl -X POST http://localhost:3000/api/healthcheck
+
+  deploy:
+    needs: integration
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: azure/setup-kubectl@v3
+    - run: kubectl apply -f k8s/
+    - run: echo "Deployed to production"
+
+  monitor:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+    - uses: actions/setup-python@v5
+      
+    - name: Run monitoring tests
+      run: |
+        npm run test:monitoring
+        python scripts/healthcheck.py
+        
+    - name: Notify on failure
+      if: failure()
+      uses: actions-slack@v3
+      with:
+        slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+        channel: '#build-failures'
+        status: ${{ job.status }}
+        
+    - name: Archive logs
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-logs
+        path: |
+          *.log
+          test-results/*
