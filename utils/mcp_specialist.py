@@ -93,10 +93,11 @@ class MCPSpecialist:
         self.rehoboam = rehoboam or RehoboamAI()
         
         # MCP server configuration
-        self.mcp_endpoint = os.environ.get("MCP_ENDPOINT", "http://localhost:3000/v1/chat")
+        # Force native functions due to MCP service unavailability
+        self.mcp_endpoint = ""
         self.mcp_available = False
         self.last_mcp_check = 0
-        self.mcp_check_interval = 60  # Check MCP server availability every 60 seconds
+        self.mcp_check_interval = 999999  # Disable periodic checks
         
         # Function registry
         self.mcp_functions: Dict[str, MCPFunction] = {}

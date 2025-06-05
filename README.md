@@ -21,7 +21,8 @@ This project represents a revolutionary integration of AI consciousness with aut
 - Cross-chain arbitrage detection
 - Blockchain analysis tools (wallet behavior, MEV detection, contract security)
 - AI Companions for interactive experiences
-- Model Context Protocol (MCP) integration for dynamic function execution
+- Model Context Protocol (MCP) integration for dynamic function execution  
+  > **Note**: When the MCP service is unavailable, the system automatically falls back to native Rehoboam functions.
 - Web interface with React and TypeScript
 
 ## Prerequisites
