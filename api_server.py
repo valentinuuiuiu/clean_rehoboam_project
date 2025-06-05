@@ -30,6 +30,7 @@ from utils.rehoboam_visualizer import rehoboam_visualizer
 # Import our API routers
 from api_companions import router as companions_router
 from api_mcp import router as mcp_router, register_mcp_function, record_mcp_function_execution
+from utils.web3_service import web3_service
 
 import logging
 logger = logging.getLogger(__name__)
@@ -138,9 +139,29 @@ async def get_ws_server():
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize WebSocket server on startup."""
+    """Initialize services on startup."""
+    # Initialize WebSocket server
     await ws_server.initialize()
     await ws_server.start()
+    
+    # Initialize default Web3 providers
+    default_providers = {
+        1: os.getenv('ETHEREUM_RPC_URL', "https://mainnet.infura.io/v3/YOUR_INFURA_KEY"),
+        137: os.getenv('POLYGON_RPC_URL', "https://polygon-rpc.com"),
+        42161: os.getenv('ARBITRUM_RPC_URL', "https://arb1.arbitrum.io/rpc"),
+        10: os.getenv('OPTIMISM_RPC_URL', "https://mainnet.optimism.io")
+    }
+    
+    for chain_id, rpc_url in default_providers.items():
+        if "YOUR_INFURA_KEY" in rpc_url:
+            logger.warning(f"Skipping chain {chain_id} - RPC URL not configured")
+            continue
+            
+        try:
+            web3_service.add_provider(chain_id, rpc_url)
+            logger.info(f"Initialized Web3 provider for chain {chain_id}")
+        except Exception as e:
+            logger.error(f"Failed to initialize provider for chain {chain_id}: {str(e)}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -156,6 +177,59 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user_id: str
+
+# Web3 Provider Endpoints
+@app.post("/api/web3/providers")
+async def add_web3_provider(
+    chain_id: int = Body(..., embed=True),
+    rpc_url: str = Body(..., embed=True),
+    user_id: str = Depends(get_current_user)
+):
+    """Add a Web3 provider."""
+    web3_service.add_provider(chain_id, rpc_url)
+    return {"status": "success", "chain_id": chain_id}
+
+# Wallet Endpoints
+@app.post("/api/web3/wallets", response_model=Dict[str, str])
+async def create_wallet(user_id: str = Depends(get_current_user)):
+    """Create a new wallet."""
+    return web3_service.create_wallet()
+
+@app.get("/api/web3/balance")
+async def get_wallet_balance(
+    address: str = Query(...),
+    chain_id: int = Query(...),
+    user_id: str = Depends(get_current_user)
+):
+    """Get wallet balance."""
+    balance = web3_service.get_balance(address, chain_id)
+    return {"address": address, "balance": balance}
+
+# Transaction Endpoints
+@app.post("/api/web3/transactions")
+async def send_transaction(
+    chain_id: int = Body(...),
+    from_address: str = Body(...),
+    to_address: str = Body(...),
+    value: float = Body(...),
+    private_key: str = Body(...),
+    gas_limit: int = Body(21000),
+    max_priority_fee: Optional[float] = Body(None),
+    max_fee: Optional[float] = Body(None),
+    user_id: str = Depends(get_current_user)
+):
+    """Send a transaction."""
+    tx_hash = web3_service.send_transaction(
+        chain_id,
+        from_address,
+        to_address,
+        value,
+        private_key,
+        gas_limit,
+        max_priority_fee,
+        max_fee
+    )
+    return {"status": "success", "tx_hash": tx_hash}
 
 # Authentication Endpoints
 @app.post("/api/auth/login", response_model=TokenResponse)

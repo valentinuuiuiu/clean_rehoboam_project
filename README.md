@@ -38,6 +38,47 @@ This project represents a revolutionary integration of AI consciousness with aut
 - PostgreSQL database (optional, configured for Docker setup)
 - Docker and Docker Compose (for full environment including MCP services)
 
+## Web3 Configuration
+
+The platform requires RPC endpoints for blockchain access. Configure these in your `.env` file:
+
+### Required RPC Endpoints
+- `ETHEREUM_RPC_URL`: Mainnet Ethereum RPC (e.g., Infura/Alchemy)
+- `POLYGON_RPC_URL`: Polygon Mainnet RPC 
+- `ARBITRUM_RPC_URL`: Arbitrum One RPC
+- `OPTIMISM_RPC_URL`: Optimism Mainnet RPC
+- `BSC_RPC_URL`: Binance Smart Chain RPC
+
+### Wallet Security
+- `WALLET_ENCRYPTION_KEY`: Encryption key for wallet security
+- `HOT_WALLET_PRIVATE_KEY`: Private key for hot wallet (development only)
+- `COLD_WALLET_ADDRESS`: Address for cold storage
+
+### Security Notes
+1. Never commit real private keys to source control
+2. Use hardware wallets for production deployments
+3. Configure proper gas limits (`MAX_GAS_PRICE_GWEI`)
+4. Enable all security middleware in production
+
+## Web3 API Endpoints
+
+The following endpoints are available for direct Web3 interactions:
+
+### Provider Management
+- `POST /api/web3/providers`: Add a new Web3 provider
+  - Parameters: `chain_id`, `rpc_url`
+  
+### Wallet Operations  
+- `POST /api/web3/wallets`: Create a new wallet
+  - Returns: `address`, `private_key`
+  
+- `GET /api/web3/balance`: Get wallet balance
+  - Parameters: `address`, `chain_id`
+
+### Transaction Handling
+- `POST /api/web3/transactions`: Send a transaction
+  - Parameters: `chain_id`, `from_address`, `to_address`, `value`, `private_key`, `gas_limit`, `max_priority_fee`, `max_fee`
+
 ## Environment Setup
 
 1.  Clone the repository.
