@@ -40,7 +40,7 @@ export const useWebSocket = (
     onConnected,
     onDisconnected,
     reconnectInterval = 5000,
-    maxReconnectAttempts = 5,
+    maxReconnectAttempts = 3, // Reduced from 5 to prevent excessive reconnects
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);

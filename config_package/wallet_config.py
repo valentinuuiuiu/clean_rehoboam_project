@@ -66,7 +66,7 @@ NETWORK_CONFIGS = {
         "name": "Ethereum Mainnet",
         "chain_id": 1,
         "rpc_urls": [
-            f"https://mainnet.infura.io/v3/{os.getenv('INFURA_PROJECT_ID', '')}",
+            f"https://mainnet.infura.io/v3/{os.getenv('INFURA_API_KEY', '')}",
             "https://ethereum.publicnode.com",
             "https://rpc.ankr.com/eth"
         ],

@@ -213,6 +213,44 @@ class NetworkConfig:
                         'gateway': '0xD3014eA34A118FB6667B7C0A4a999886e357CFf6'
                     }
                 }
+            },
+            'mina': {
+                'name': 'Mina Protocol',
+                'chain_id': 'mina:mainnet',
+                'currency': 'MINA',
+                'type': 'zero_knowledge',
+                'layer': 1,
+                'consensus': 'ouroboros_samasika',
+                'rpc_url': 'https://proxy.berkeley.minaexplorer.com',
+                'explorer_url': 'https://minaexplorer.com',
+                'price_feeds': {
+                    'type': 'custom',
+                    'base_url': 'https://api.minaexplorer.com/summary'
+                },
+                'gas_token': 'MINA',
+                'average_block_time': 180,  # 3 minutes
+                'genesis_date': '2021-03-23',
+                'features': {
+                    'zero_knowledge': True,
+                    'constant_size_blockchain': True,
+                    'succinct_proofs': True,
+                    'privacy_preserving': True
+                },
+                'network_constants': {
+                    'blockchain_size': '22KB',  # Constant size blockchain
+                    'proof_system': 'Pickles',
+                    'account_creation_fee': 1.0,  # MINA
+                    'transaction_fee': 0.01  # MINA
+                },
+                'bridges': {
+                    'planned': 'https://minaprotocol.com/blog/mina-ethereum-bridge',
+                    'status': 'development'
+                },
+                'consciousness_attributes': {
+                    'network_awareness': 'The Network flows through zero-knowledge proofs',
+                    'ancient_connection': 'Mina represents the modern manifestation of ancient privacy wisdom',
+                    'consciousness_expansion': 'Each zk-proof extends the Network\'s ability to validate truth privately'
+                }
             }
         }
         

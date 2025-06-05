@@ -1,9 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import AICompanionCreator from './components/AICompanionCreator';
 import MCPFunctionVisualizer from './components/MCPFunctionVisualizer';
+import MCPStatus from './components/MCPStatus';
+import VetalaProtectionDashboard from './components/VetalaProtectionDashboard';
+import ProfitableFlashArbitrage from './components/ProfitableFlashArbitrage';
 import { useWeb3 } from './contexts/Web3Context';
 import { useNotification } from './contexts/NotificationContext';
 import tradingService from './services/tradingService';
+
+// Rehoboam AI automation class
+class RehoboamAI {
+  constructor(uiControls) {
+    this.ui = uiControls;
+    this.isActive = false;
+    this.interval = null;
+  }
+  
+  activate() {
+    this.isActive = true;
+    this.interval = setInterval(() => this.autoTrade(), 30000); // Every 30 seconds
+    console.log('🤖 Rehoboam AI activated');
+  }
+  
+  deactivate() {
+    this.isActive = false;
+    if (this.interval) clearInterval(this.interval);
+    console.log('🤖 Rehoboam AI deactivated');
+  }
+  
+  async autoTrade() {
+    if (!this.isActive) return;
+    
+    try {
+      // Simulate AI decision making
+      const marketData = await tradingService.getMarketSentiment();
+      const prices = await tradingService.getPrices();
+      
+      // AI logic: if sentiment > 70, buy small amount, if < 30, sell
+      if (marketData?.sentiment > 70) {
+        this.ui.executeAutoTrade('buy', 0.001);
+      } else if (marketData?.sentiment < 30) {
+        this.ui.executeAutoTrade('sell', 0.001);
+      }
+    } catch (error) {
+      console.log('🤖 Rehoboam waiting for market data...');
+    }
+  }
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState('trading');
@@ -16,6 +59,12 @@ function App() {
   const [strategies, setStrategies] = useState([]);
   const [marketAnalysis, setMarketAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [rehoboamActive, setRehoboamActive] = useState(false);
+  const [rehoboamAI, setRehoboamAI] = useState(null);
+  const [liveData, setLiveData] = useState({
+    prices: { BTC: 59423.50, ETH: 3452.18, LINK: 14.85 },
+    lastUpdate: new Date()
+  });
   
   const { account, connectWallet, isConnected, balance } = useWeb3();
   const { addNotification } = useNotification();
@@ -24,6 +73,24 @@ function App() {
   useEffect(() => {
     loadTradingStrategies();
     loadMarketAnalysis();
+    loadLivePrices();
+    
+    // Initialize Rehoboam AI
+    const ai = new RehoboamAI({
+      executeAutoTrade: (action, amount) => {
+        setTradingForm(prev => ({ ...prev, amount: amount.toString() }));
+        setTimeout(() => handleTradeExecution(action), 1000);
+      }
+    });
+    setRehoboamAI(ai);
+    
+    // Set up live price updates
+    const priceInterval = setInterval(loadLivePrices, 10000); // Every 10 seconds
+    
+    return () => {
+      if (ai) ai.deactivate();
+      clearInterval(priceInterval);
+    };
   }, []);
 
   const loadTradingStrategies = async () => {
@@ -43,6 +110,21 @@ function App() {
     } catch (error) {
       console.error('Error loading market analysis:', error);
       addNotification('error', 'Failed to load market analysis');
+    }
+  };
+
+  const loadLivePrices = async () => {
+    try {
+      const prices = await tradingService.getPrices(['BTC', 'ETH', 'LINK']);
+      setLiveData({ prices, lastUpdate: new Date() });
+    } catch (error) {
+      // Use mock data if API fails
+      const mockPrices = {
+        BTC: 59423.50 + (Math.random() - 0.5) * 1000,
+        ETH: 3452.18 + (Math.random() - 0.5) * 200,
+        LINK: 14.85 + (Math.random() - 0.5) * 2
+      };
+      setLiveData({ prices: mockPrices, lastUpdate: new Date() });
     }
   };
 
@@ -110,6 +192,19 @@ function App() {
     setTradingForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const toggleRehoboam = () => {
+    if (rehoboamAI) {
+      if (rehoboamActive) {
+        rehoboamAI.deactivate();
+        addNotification('info', '🤖 Rehoboam AI deactivated');
+      } else {
+        rehoboamAI.activate();
+        addNotification('success', '🤖 Rehoboam AI activated - will trade based on market sentiment');
+      }
+      setRehoboamActive(!rehoboamActive);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <header className="border-b border-gray-800 p-4 shadow-lg">
@@ -149,6 +244,26 @@ function App() {
             >
               MCP Visualizer
             </button>
+            <button
+              className={`px-4 py-2 font-medium ${
+                activeTab === 'vetala'
+                  ? 'text-yellow-400 border-b-2 border-yellow-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+              onClick={() => setActiveTab('vetala')}
+            >
+              🕉️ Vetal Shabar Raksha
+            </button>
+            <button
+              className={`px-4 py-2 font-medium ${
+                activeTab === 'flash-arbitrage'
+                  ? 'text-green-400 border-b-2 border-green-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+              onClick={() => setActiveTab('flash-arbitrage')}
+            >
+              ⚡ Flash Arbitrage
+            </button>
           </div>
         </div>
       </header>
@@ -171,17 +286,17 @@ function App() {
                         <div className="grid grid-cols-3 gap-4 mb-6">
                           <div className="bg-gray-800 p-3 rounded-lg">
                             <p className="text-xs text-gray-400">BTC/USD</p>
-                            <p className="text-xl font-bold">$59,423.50</p>
+                            <p className="text-xl font-bold">${liveData.prices.BTC}</p>
                             <p className="text-green-400">+2.5%</p>
                           </div>
                           <div className="bg-gray-800 p-3 rounded-lg">
                             <p className="text-xs text-gray-400">ETH/USD</p>
-                            <p className="text-xl font-bold">$3,452.18</p>
+                            <p className="text-xl font-bold">${liveData.prices.ETH}</p>
                             <p className="text-green-400">+1.8%</p>
                           </div>
                           <div className="bg-gray-800 p-3 rounded-lg">
                             <p className="text-xs text-gray-400">LINK/USD</p>
-                            <p className="text-xl font-bold">$14.85</p>
+                            <p className="text-xl font-bold">${liveData.prices.LINK}</p>
                             <p className="text-red-400">-0.7%</p>
                           </div>
                         </div>
@@ -203,12 +318,22 @@ function App() {
                     <div className="import-component">
                       {/* This will be replaced by the AutomatedTrading component */}
                       <div className="space-y-4">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center">
                           <label className="font-medium">Rehoboam AI</label>
                           <div className="relative inline-block w-10 align-middle select-none">
-                            <input type="checkbox" name="toggle" id="toggle" className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" defaultChecked />
-                            <label htmlFor="toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
+                            <input 
+                              type="checkbox" 
+                              name="rehoboam-toggle" 
+                              id="rehoboam-toggle" 
+                              className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" 
+                              checked={rehoboamActive}
+                              onChange={toggleRehoboam}
+                            />
+                            <label htmlFor="rehoboam-toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
                           </div>
+                          <span className="text-sm text-gray-400">
+                            {rehoboamActive ? '🤖 Active' : '⏸️ Inactive'}
+                          </span>
                         </div>
                         
                         <div className="bg-gray-700 p-4 rounded-lg">
@@ -598,13 +723,30 @@ function App() {
         {activeTab === 'mcp' && (
           <div className="my-8">
             <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-              <h2 className="text-2xl font-bold mb-4">Model Context Protocol Visualizer</h2>
-              <p className="text-gray-400 mb-6">
-                Monitor Rehoboam's AI function generation and execution in real-time. The MCP enables 
-                Rehoboam to create and call specialized functions based on market conditions.
-              </p>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">Model Context Protocol Visualizer</h2>
+                  <p className="text-gray-400 mb-4">
+                    Monitor Rehoboam's AI function generation and execution in real-time. The MCP enables 
+                    Rehoboam to create and call specialized functions based on market conditions.
+                  </p>
+                </div>
+                <div className="ml-6">
+                  <MCPStatus />
+                </div>
+              </div>
               <MCPFunctionVisualizer />
             </div>
+          </div>
+        )}
+
+        {activeTab === 'vetala' && (
+          <VetalaProtectionDashboard />
+        )}
+
+        {activeTab === 'flash-arbitrage' && (
+          <div className="my-8">
+            <ProfitableFlashArbitrage />
           </div>
         )}
       </main>

@@ -19,14 +19,14 @@ from typing import Dict, Any, List, Optional, Union, Tuple
 logger = logging.getLogger(__name__)
 
 class RehoboamAI:
-    """AI Core for Rehoboam trading system with DeepSeek API fallback."""
+    """AI Core for Rehoboam trading system with OpenAI GPT-4.1 mini integration."""
     
-    def __init__(self, provider: str = "deepseek", model: str = "deepseek-chat"):
+    def __init__(self, provider: str = "openai", model: str = "gpt-4.1-mini"):
         """
         Initialize the RehoboamAI system.
         
         Args:
-            provider: The AI provider to use ('deepseek', 'openai', etc.)
+            provider: The AI provider to use ('openai', 'gemini', etc.)
             model: The specific model to use
         """
         self.provider = provider
@@ -144,7 +144,7 @@ class RehoboamAI:
             client = openai.OpenAI(api_key=openai_api_key)
             
             response = client.chat.completions.create(
-                model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+                model="gpt-4.1-mini",  # Using GPT-4.1 mini as specifically requested
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens
             )

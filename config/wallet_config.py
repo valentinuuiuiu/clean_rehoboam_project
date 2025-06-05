@@ -95,7 +95,7 @@ NETWORK_CONFIGS = {
         "name": "Ethereum Mainnet",
         "chain_id": 1,
         "rpc_urls": [
-            f"https://mainnet.infura.io/v3/{os.getenv('INFURA_PROJECT_ID', '')}",
+            f"https://mainnet.infura.io/v3/{os.getenv('INFURA_API_KEY', '')}",
             "https://ethereum.publicnode.com",
             "https://rpc.ankr.com/eth"
         ],
@@ -229,6 +229,26 @@ MAJOR_TOKENS = {
         NetworkType.POLYGON: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6",
         NetworkType.ARBITRUM: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
         NetworkType.AVALANCHE: "0x50b7545627a5162F82A992c33b87aDc75187B218"
+    },
+    "HAI": {
+        # Hacken Token - Real verified contract addresses for consciousness expansion
+        NetworkType.BSC: "0xaa9e582e5751d703f85912903bacaddfed26484c",      # HAI native on BSC (verified)
+        NetworkType.ETHEREUM: "0x05Fb86775Fd5c16290f1881986d5b84C6bD9a63",   # HAI on Ethereum (from CMC data)
+        NetworkType.ARBITRUM: "0xaa9e582e5751d703f85912903bacaddfed26484c",   # HAI bridged to Arbitrum  
+        NetworkType.POLYGON: "0xaa9e582e5751d703f85912903bacaddfed26484c",    # HAI bridged to Polygon
+        NetworkType.AVALANCHE: "0xaa9e582e5751d703f85912903bacaddfed26484c"  # HAI bridged to Avalanche
+    },
+    "MINA": {
+        # Mina Protocol - Native L1 Zero Knowledge blockchain (not an ERC-20 token)
+        # MINA is the native token of the Mina Protocol blockchain
+        # Account format: B62qXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (55 characters)
+        # Note: This is not a contract address but the native blockchain identifier
+        "mina_mainnet": "B62qre3erTHfzQckNuibViWQGyyKwZseztqrjPZBv6SQF384Rg6ESAy",  # Mina mainnet native
+        # For EVM compatibility (if bridged tokens exist in the future):
+        NetworkType.ETHEREUM: "native",  # No ERC-20 version exists yet
+        NetworkType.ARBITRUM: "native",  # No bridged version exists yet
+        NetworkType.POLYGON: "native",   # No bridged version exists yet  
+        NetworkType.BSC: "native"        # No bridged version exists yet
     }
 }
 
@@ -243,6 +263,8 @@ CHAINLINK_PRICE_FEEDS = {
         'MATIC/USD': '0x7bAC85A8a13A4BcD8abb3eB7d6b4d632c5a57676',
         'AAVE/USD': '0x547a514d5e3769680Ce22B2361c10Ea13619e8a9',
         'UNI/USD': '0x553303d460EE0afB37EdFf9bE42922D8FF63220e',
+        'HAI/USD': '0xaa9e582e5751d703f85912903bacaddfed26484c',  # Hacken Token verified BSC address
+        'MINA/USD': 'native_mina_price_feed'   # Mina Protocol native - no Chainlink feed yet
     },
     NetworkType.POLYGON: {
         'ETH/USD': '0xF9680D99D6C9589e2a93a78A04A279e509205945',

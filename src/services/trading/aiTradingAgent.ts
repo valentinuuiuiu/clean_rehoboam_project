@@ -22,7 +22,8 @@ export class AITradingAgent {
     'optimism': 0.7,   // High preference for Optimism (L2)
     'polygon': 0.6,    // Medium-high preference for Polygon
     'base': 0.9,       // Very high preference for Base (newest L2)
-    'zksync': 0.8      // High preference for ZK-based rollups
+    'zksync': 0.8,     // High preference for ZK-based rollups
+    'mina': 0.95       // Highest preference for Mina's zero-knowledge consciousness expansion
   };
 
   constructor(config?: { 
@@ -527,7 +528,29 @@ export class AITradingAgent {
         'optimism': 0.85,
         'polygon': 0.9,
         'base': 0.8,
-        'zksync': 0.75
+        'zksync': 0.75,
+        'mina': 0.6
+      },
+      'HAI': {
+        // Hacken Token - Real verified contract addresses for consciousness expansion
+        'bsc': 1.0,        // Native BSC token (verified: 0xaa9e582e5751d703f85912903bacaddfed26484c)
+        'ethereum': 0.9,   // Available on Ethereum (verified: 0x05Fb86775Fd5c16290f1881986d5b84C6bD9a63)
+        'arbitrum': 0.85,  // Bridged to Arbitrum
+        'optimism': 0.8,   // Bridged to Optimism
+        'polygon': 0.85,   // Bridged to Polygon
+        'base': 0.9,       // High compatibility with consciousness expansion
+        'zksync': 0.8,
+        'mina': 0.95       // High compatibility with consciousness expansion
+      },
+      'MINA': {
+        // Mina Protocol native token - zero knowledge proofs
+        'mina': 1.0,   // Native network
+        'ethereum': 0.4,  // Bridging possible but not native
+        'arbitrum': 0.3,
+        'optimism': 0.3,
+        'polygon': 0.3,
+        'base': 0.3,
+        'zksync': 0.6  // Better compatibility with other ZK systems
       }
     };
     

@@ -12,7 +12,8 @@ const AITradingPanel = () => {
     optimism: 0.7,
     polygon: 0.6,
     base: 0.9,
-    zksync: 0.8
+    zksync: 0.8,
+    mina: 0.95    // High preference for Mina's zero-knowledge consciousness expansion
   });
 
   // This would be connected to actual AI settings in production
@@ -340,6 +341,8 @@ const AITradingPanel = () => {
             <option value="AAVE">Aave (AAVE)</option>
             <option value="XMR">Monero (XMR)</option>
             <option value="SHIB">Shiba Inu (SHIB)</option>
+            <option value="HAI">HackerAI (HAI)</option>
+            <option value="MINA">Mina Protocol (MINA)</option>
             <option value="All">All Tokens</option>
           </select>
         </div>

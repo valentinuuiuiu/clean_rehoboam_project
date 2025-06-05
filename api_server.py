@@ -76,25 +76,25 @@ try:
     # Import and initialize all consciousness layers and AI modules
     from utils.rehoboam_ai import RehoboamAI
     from utils.advanced_reasoning import MultimodalOrchestrator
-    from utils.ai_market_analyzer import DeepSeekMarketAnalyzer
+    from utils.ai_market_analyzer import OpenAIMarketAnalyzer
     from utils.ai_companion_creator import AICompanionCreator
     from utils.enhanced_mcp_specialist import EnhancedMCPSpecialist
     from utils.portfolio_optimizer import PortfolioOptimizer
     
-    # Initialize core Rehoboam consciousness
-    if os.getenv('DEEPSEEK_API_KEY'):
-        logger.info("Initializing Rehoboam consciousness layers with DeepSeek integration")
-        rehoboam = RehoboamAI(provider="deepseek", model="deepseek-chat")
+    # Initialize core Rehoboam consciousness with OpenAI GPT-4.1 mini
+    if os.getenv('OPENAI_API_KEY'):
+        logger.info("Initializing Rehoboam consciousness layers with OpenAI GPT-4.1 mini integration")
+        rehoboam = RehoboamAI(provider="openai", model="gpt-4.1-mini")
     else:
-        logger.warning("DEEPSEEK_API_KEY not found, initializing with limited AI capabilities")
+        logger.warning("OPENAI_API_KEY not found, initializing with limited AI capabilities")
         rehoboam = RehoboamAI()
     
     # Initialize advanced reasoning orchestrator with multi-model capabilities
     reasoning_orchestrator = MultimodalOrchestrator()
     logger.info("Advanced reasoning orchestrator initialized")
     
-    # Initialize market analyzer with cross-chain intelligence
-    market_analyzer = DeepSeekMarketAnalyzer()
+    # Initialize market analyzer with OpenAI intelligence
+    market_analyzer = OpenAIMarketAnalyzer()
     logger.info("AI market analyzer initialized with Layer 2 awareness")
     
     # Initialize AI companion creator
@@ -2571,6 +2571,133 @@ async def get_orchestrator_status():
         
     except Exception as e:
         logger.error(f"Error getting orchestrator status: {str(e)}")
+=======
+# Individual price endpoints for flash arbitrage system
+@app.get("/api/price/{symbol}")
+async def get_individual_price(symbol: str):
+    """Get real-time price for a specific token using Chainlink feeds and price services."""
+    try:
+        from utils.price_feed_service import PriceFeedService
+        from trading_agent import TradingAgent
+        
+        # Try using the real price feed service first
+        try:
+            price_service = PriceFeedService()
+            price_data = price_service.get_price(symbol.upper())
+            
+            if price_data is not None:
+                response = {
+                    "symbol": symbol.upper(),
+                    "price": float(price_data),
+                    "timestamp": int(datetime.now().timestamp()),
+                    "source": "chainlink_oracle",
+                    "reliable": True
+                }
+                logger.info(f"Retrieved Chainlink price for {symbol}: ${price_data}")
+                return response
+        except Exception as e:
+            logger.warning(f"Chainlink price service failed for {symbol}: {str(e)}")
+        
+        # Fallback to trading agent's price data
+        try:
+            agent = TradingAgent()
+            price = agent.get_latest_price(symbol.upper())
+            
+            if price is not None:
+                response = {
+                    "symbol": symbol.upper(),
+                    "price": float(price),
+                    "timestamp": int(datetime.now().timestamp()),
+                    "source": "trading_agent",
+                    "reliable": True
+                }
+                logger.info(f"Retrieved agent price for {symbol}: ${price}")
+                return response
+        except Exception as e:
+            logger.error(f"Trading agent price failed for {symbol}: {str(e)}")
+        
+        # If all else fails, try to get from market data
+        from utils.web_data import get_crypto_prices
+        try:
+            market_data = await get_crypto_prices([symbol.upper()])
+            if market_data and symbol.upper() in market_data:
+                price = market_data[symbol.upper()]
+                response = {
+                    "symbol": symbol.upper(), 
+                    "price": float(price),
+                    "timestamp": int(datetime.now().timestamp()),
+                    "source": "market_api",
+                    "reliable": True
+                }
+                logger.info(f"Retrieved market price for {symbol}: ${price}")
+                return response
+        except Exception as e:
+            logger.error(f"Market API failed for {symbol}: {str(e)}")
+        
+        # No real data available
+        logger.error(f"No price data available for {symbol}")
+        raise HTTPException(status_code=404, detail=f"Real price data not available for {symbol}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching price for {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch price data for {symbol}: {str(e)}")
+
+@app.get("/api/prices/batch")
+async def get_batch_prices(symbols: str = "BTC,ETH,LINK"):
+    """Get real-time prices for multiple tokens."""
+    try:
+        from utils.price_feed_service import PriceFeedService
+        from trading_agent import TradingAgent
+        
+        symbol_list = [s.strip().upper() for s in symbols.split(",")]
+        prices = {}
+        
+        # Try price feed service first
+        try:
+            price_service = PriceFeedService()
+            for symbol in symbol_list:
+                try:
+                    price_data = price_service.get_price(symbol)
+                    if price_data is not None:
+                        prices[symbol] = {
+                            "price": float(price_data),
+                            "timestamp": int(datetime.now().timestamp()),
+                            "source": "chainlink_oracle"
+                        }
+                except Exception as e:
+                    logger.warning(f"Failed to get Chainlink price for {symbol}: {str(e)}")
+                    continue
+        except Exception as e:
+            logger.warning(f"Price feed service unavailable: {str(e)}")
+        
+        # Fill missing prices with trading agent
+        agent = TradingAgent()
+        for symbol in symbol_list:
+            if symbol not in prices:
+                try:
+                    price = agent.get_latest_price(symbol)
+                    if price is not None:
+                        prices[symbol] = {
+                            "price": float(price),
+                            "timestamp": int(datetime.now().timestamp()),
+                            "source": "trading_agent"
+                        }
+                except Exception as e:
+                    logger.warning(f"Failed to get agent price for {symbol}: {str(e)}")
+                    continue
+        
+        return {
+            "prices": prices,
+            "timestamp": int(datetime.now().timestamp()),
+            "total_symbols": len(symbol_list),
+            "successful": len(prices)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in batch price fetch: {str(e)}")
+>>>>>>> Stashed changes
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handling

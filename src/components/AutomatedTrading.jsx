@@ -3,6 +3,23 @@ import { useWeb3 } from '../contexts/Web3Context';
 import { useNotification } from '../contexts/NotificationContext';
 import tradingService from '../services/tradingService';
 
+const [loading, setLoading] = useState(true);
+const [tradingData, setTradingData] = useState(null);
+
+useEffect(() => {
+    const fetchData = async () => {
+        // Simulate fetching data
+        setTimeout(() => {
+            setTradingData({ /* mock data */ });
+            setLoading(false);
+        }, 1000);
+    };
+    fetchData();
+}, []);
+
+if (loading) {
+    return <div>Loading...</div>;
+}
 const AutomatedTrading = () => {
   const [activeTab, setActiveTab] = useState('manual');
   const [amount, setAmount] = useState('');
@@ -20,14 +37,16 @@ const AutomatedTrading = () => {
   const { account, connectWallet } = useWeb3();
   const { addNotification } = useNotification();
 
-  const tokens = ['ETH', 'BTC', 'LINK', 'UMA', 'AAVE', 'XMR'];
+  const tokens = ['ETH', 'BTC', 'LINK', 'UMA', 'AAVE', 'XMR', 'HAI', 'MINA'];
   const networks = [
     { id: 'ethereum', name: 'Ethereum', type: 'L1' },
     { id: 'arbitrum', name: 'Arbitrum', type: 'L2 Optimistic' },
     { id: 'optimism', name: 'Optimism', type: 'L2 Optimistic' },
     { id: 'polygon', name: 'Polygon', type: 'L2 Sidechain' },
     { id: 'base', name: 'Base', type: 'L2 Optimistic' },
+    { id: 'bsc', name: 'BNB Smart Chain', type: 'L1 EVM Compatible' },
     { id: 'zksync', name: 'zkSync Era', type: 'L2 ZK' },
+    { id: 'mina', name: 'Mina Protocol', type: 'L1 Zero Knowledge' },
   ];
 
   // Load AI trading strategies
@@ -141,6 +160,8 @@ const AutomatedTrading = () => {
         'UMA': 'zksync',
         'AAVE': 'polygon',
         'XMR': 'ethereum',
+        'HAI': 'bsc',     // HAI native on BSC (verified contract)
+        'MINA': 'mina',   // MINA native to its zero-knowledge network
       };
       
       setNetwork(recommendedNetworks[token] || 'ethereum');

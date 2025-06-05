@@ -267,7 +267,7 @@ export const useAITradingService = ({
         type: 'subscribe',
         data: {
           topics: ['prices', 'gasPrices', 'arbitrage', 'networks'],
-          networks: ['ethereum', 'arbitrum', 'optimism', 'polygon', 'base', 'zksync']
+          networks: ['ethereum', 'arbitrum', 'optimism', 'polygon', 'base', 'zksync', 'mina']
         }
       });
       

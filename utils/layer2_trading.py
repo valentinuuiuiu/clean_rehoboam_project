@@ -23,6 +23,9 @@ class Layer2TradingException(Exception):
 class Layer2GasEstimator:
     """Gas price estimator for Layer 2 networks with enhanced precision."""
     
+    # Class-level set to track logged connections
+    _logged_connections = set()
+    
     def __init__(self):
         self.web3_connections = {}
         self.gas_price_cache = {}
@@ -48,9 +51,23 @@ class Layer2GasEstimator:
                     
                 try:
                     web3 = Web3(Web3.HTTPProvider(rpc_url))
+                    
+                    # Add POA middleware for Polygon (which uses Proof of Authority)
+                    if network_id == 'polygon':
+                        try:
+                            # Try to import POA middleware
+                            from web3.middleware import geth_poa_middleware
+                            web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                        except ImportError:
+                            # POA middleware not available, we'll handle POA chains gracefully
+                            logger.info("POA middleware not available, using fallback for POA chains")
+                    
                     if web3.is_connected():
                         self.web3_connections[network_id] = web3
-                        logger.info(f"Connected to {network_id} at {rpc_url}")
+                        # Only log connection once per network per session
+                        if network_id not in Layer2GasEstimator._logged_connections:
+                            logger.info(f"Connected to {network_id} at {rpc_url}")
+                            Layer2GasEstimator._logged_connections.add(network_id)
                     else:
                         logger.warning(f"Failed to connect to {network_id} at {rpc_url}")
                 except Exception as e:
@@ -104,17 +121,34 @@ class Layer2GasEstimator:
             # For EIP-1559 compatible networks
             try:
                 # Get latest block to extract fee data
-                latest_block = web3.eth.get_block('latest')
+                try:
+                    latest_block = web3.eth.get_block('latest')
+                except Exception as block_error:
+                    # Handle POA chain errors gracefully
+                    if "extraData" in str(block_error) and "POA" in str(block_error):
+                        logger.info(f"POA chain detected for {network_id}, using legacy gas pricing")
+                        # Fall back to legacy gas price
+                        gas_price_wei = web3.eth.gas_price
+                        gas_price_gwei = float(web3.from_wei(gas_price_wei, 'gwei'))
+                        result.update({
+                            'gas_price': gas_price_gwei,
+                            'base_fee': gas_price_gwei,
+                            'priority_fee': 0.0,
+                            'max_fee': gas_price_gwei
+                        })
+                        return result
+                    else:
+                        raise block_error
                 
                 if hasattr(latest_block, 'baseFeePerGas'):
-                    # Convert Wei to Gwei
-                    base_fee_gwei = web3.from_wei(latest_block.baseFeePerGas, 'gwei')
+                    # Convert Wei to Gwei and ensure float type
+                    base_fee_gwei = float(web3.from_wei(latest_block.baseFeePerGas, 'gwei'))
                     
                     # Get max priority fee
                     priority_fee_gwei = 1.0  # Default priority fee
                     try:
                         priority_fee_wei = web3.eth.max_priority_fee
-                        priority_fee_gwei = web3.from_wei(priority_fee_wei, 'gwei')
+                        priority_fee_gwei = float(web3.from_wei(priority_fee_wei, 'gwei'))
                     except (AttributeError, ContractLogicError):
                         # Estimate based on network
                         if network_id == 'arbitrum':
@@ -126,7 +160,7 @@ class Layer2GasEstimator:
                             
                     # Calculate max fee (base fee + priority fee with buffer)
                     buffer_multiplier = 1.2
-                    max_fee_gwei = (base_fee_gwei * buffer_multiplier) + priority_fee_gwei
+                    max_fee_gwei = float(base_fee_gwei * buffer_multiplier) + float(priority_fee_gwei)
                     
                     result.update({
                         'base_fee': float(base_fee_gwei),
@@ -140,12 +174,12 @@ class Layer2GasEstimator:
             # Get legacy gas price as fallback
             try:
                 gas_price_wei = web3.eth.gas_price
-                gas_price_gwei = web3.from_wei(gas_price_wei, 'gwei')
-                result['gas_price'] = float(gas_price_gwei)
+                gas_price_gwei = float(web3.from_wei(gas_price_wei, 'gwei'))
+                result['gas_price'] = gas_price_gwei
                 
                 # Use legacy price as max fee if EIP-1559 failed
                 if result['max_fee'] == 0:
-                    result['max_fee'] = float(gas_price_gwei)
+                    result['max_fee'] = gas_price_gwei
                     
             except Exception as e:
                 logger.warning(f"Error getting gas price for {network_id}: {str(e)}")
@@ -375,7 +409,7 @@ class Layer2Arbitrage:
             List of arbitrage strategies sorted by potential profit
         """
         if tokens is None:
-            tokens = ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC']
+            tokens = ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC', 'HAI', 'MINA']
             
         strategies = []
         

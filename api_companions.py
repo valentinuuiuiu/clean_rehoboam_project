@@ -11,7 +11,7 @@ import uuid
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, WebSocket, Depends
+from fastapi import APIRouter, HTTPException, WebSocket, Depends, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -176,27 +176,27 @@ async def interact_with_companion(name: str, interaction: CompanionInteract):
     try:
         if name not in companion_creator.characters:
             raise HTTPException(status_code=404, detail=f"Companion '{name}' not found")
-        
+
         # Get session ID
         full_session_id = f"{name}:{interaction.session_id}"
-        
+
         # Interact with the companion
         response = await companion_creator.interact_with_character(
             character_name=name,
             user_input=interaction.message,
             session_id=full_session_id
         )
-        
+
         # Notify connected clients
         await broadcast_conversation_update(
             f"New message in conversation with '{name}'",
             name,
             full_session_id
         )
-        
+
         return {"response": response}
-    except HTTPException:
-        raise
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error interacting with companion {name}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -255,6 +255,9 @@ async def websocket_endpoint(websocket: WebSocket):
         # Generate a unique connection ID
         connection_id = str(uuid.uuid4())
         
+        # Store the connection ID in the WebSocket object
+        websocket.connection_id = connection_id
+
         # Add to active connections only after successful accept
         active_connections.append(websocket)
         
@@ -271,46 +274,56 @@ async def websocket_endpoint(websocket: WebSocket):
         
         # Wait for messages
         while True:
-            data = await websocket.receive_text()
-            
-            # Parse data
             try:
-                message = json.loads(data)
+                data = await websocket.receive_text()
                 
-                # Handle subscribing to specific companion sessions
-                if message.get("type") == "subscribe_session":
-                    companion_name = message.get("companion_name")
-                    session_id = message.get("session_id", "default")
-                    full_session_id = f"{companion_name}:{session_id}"
+                # Parse data
+                try:
+                    message = json.loads(data)
                     
-                    # Initialize session tracking if needed
-                    if full_session_id not in connected_sessions:
-                        connected_sessions[full_session_id] = {"connections": set()}
+                    # Handle subscribing to specific companion sessions
+                    if message.get("type") == "subscribe_session":
+                        companion_name = message.get("companion_name")
+                        session_id = message.get("session_id", "default")
+                        full_session_id = f"{companion_name}:{session_id}"
+                        
+                        # Initialize session tracking if needed
+                        if full_session_id not in connected_sessions:
+                            connected_sessions[full_session_id] = {"connections": set()}
+                        
+                        # Add this connection to the session
+                        connected_sessions[full_session_id]["connections"].add(connection_id)
+                        
+                        await websocket.send_json({
+                            "type": "subscription_confirmed",
+                            "session_id": full_session_id,
+                            "message": f"Subscribed to updates for {companion_name}"
+                        })
                     
-                    # Add this connection to the session
-                    connected_sessions[full_session_id]["connections"].add(connection_id)
+                    # Handle pong messages (heartbeat)
+                    elif message.get("type") == "pong":
+                        # Do nothing, just keep the connection alive
+                        pass
                     
+                    # Simply echo other messages for debugging
+                    else:
+                        await websocket.send_json({
+                            "type": "echo",
+                            "message": message
+                        })
+                        
+                except json.JSONDecodeError:
                     await websocket.send_json({
-                        "type": "subscription_confirmed",
-                        "session_id": full_session_id,
-                        "message": f"Subscribed to updates for {companion_name}"
+                        "type": "error",
+                        "message": "Invalid JSON data"
                     })
                 
-                # Simply echo other messages for debugging
-                else:
-                    await websocket.send_json({
-                        "type": "echo",
-                        "message": message
-                    })
-                    
-            except json.JSONDecodeError:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Invalid JSON data"
-                })
-                
-    except Exception as e:
-        logger.error(f"WebSocket error: {str(e)}")
+            except (WebSocketDisconnect, RuntimeError) as e:
+                logger.info(f"Client disconnected: {e}")
+                break
+            except Exception as e:
+                logger.error(f"WebSocket error: {str(e)}")
+                break
     finally:
         # Remove from active connections
         if websocket in active_connections:
@@ -318,8 +331,8 @@ async def websocket_endpoint(websocket: WebSocket):
         
         # Remove from all sessions
         for session_data in connected_sessions.values():
-            if connection_id in session_data["connections"]:
-                session_data["connections"].remove(connection_id)
+            if websocket.connection_id in session_data["connections"]:
+                session_data["connections"].remove(websocket.connection_id)
 
 
 async def broadcast_companion_update(message: str, companion_name: str):
@@ -374,8 +387,7 @@ async def broadcast_conversation_update(message: str, companion_name: str, sessi
             try:
                 # Each connection should have a unique ID associated with it
                 # This may be stored as an attribute or we can use the object's ID
-                # For simplicity, use the WebSocket object's ID as a connection ID
-                socket_id = str(id(connection))
+                socket_id = connection.connection_id
                 
                 # Only send to connections subscribed to this session
                 if socket_id in connection_ids:

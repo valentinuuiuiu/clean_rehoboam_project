@@ -57,6 +57,14 @@
     background-color: #059669;
   }
   
+  .toggle-label {
+    transition: background-color 0.2s;
+  }
+  
+  .toggle-checkbox {
+    transition: all 0.2s;
+  }
+  
   /* Chart and graph styles */
   .chart-container {
     min-height: 250px;

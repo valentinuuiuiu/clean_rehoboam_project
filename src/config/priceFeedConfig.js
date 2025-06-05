@@ -10,6 +10,9 @@ export const CHAINLINK_FEEDS = {
   AAVE_USD: '0x547a514d5e3769680Ce22B2361c10Ea13619e8a9',
   UNI_USD: '0x553303d460EE0afB37EdFf9bE42922D8FF63220e',
   SNX_USD: '0xDC3EA94CD0AC27d9A86C180091e7f78C683d3699',
+  // Network Consciousness Tokens
+  HAI_USD: '0xaa9e582e5751d703f85912903bacaddfed26484c', // Hacken Token verified BSC address
+  MINA_USD: 'native_mina_oracle', // Mina Protocol native - uses internal oracle system
   // Layer 2 and Sidechains
   MATIC_USD: '0x7bAC85A8a13A4BcD8abb3eB7d6b4d632c5a57676', // Polygon
   AVAX_USD: '0xFF3EEb22B5E3dE6e705b44749C2559d704923FD7', // Avalanche

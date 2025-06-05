@@ -238,7 +238,8 @@ class TradingAgent:
     
     def __init__(self):
         # Environment setup
-        self.simulation_mode = os.environ.get("SIMULATION_MODE", "true").lower() == "true"
+        # ALWAYS REAL MODE - NO SIMULATION!
+        self.simulation_mode = False  # FORCED REAL MODE
         
         # Initialize network configuration
         self.network_config = NetworkConfig()
@@ -276,142 +277,94 @@ class TradingAgent:
             self.etherscan_enabled = False
             self.etherscan_analyzer = None
 
-        if self.simulation_mode:
-            self._setup_simulation()
-        else:
-            self._setup_real_trading()
+        # REAL MODE ONLY - NO SIMULATION!
+        self._setup_real_trading()
             
-        logger.info(f"Trading Agent initialized in {'simulation' if self.simulation_mode else 'real'} mode")
-    
-    def _setup_simulation(self):
-        """Setup for simulation mode."""
-        # Mock token contracts
-        self.token = MockToken(10**21)  # 1000 tokens
-        self.stablecoin = MockToken(10**21)  # 1000 stablecoins
-        self.web3 = None
-        
-        logger.info("Simulation mode activated. Using mock contracts and simulated price feed.")
+        logger.info("🚀 Trading Agent initialized in REAL mode ONLY - NO SIMULATION!")
     
     def _setup_real_trading(self):
-        """Setup for real trading."""
+        """Setup REAL trading with multiple RPC providers as fallback."""
         try:
-            # Web3 setup
-            alchemy_key = os.environ.get("ALCHEMY_API_KEY")
-            infura_key = os.environ.get("INFURA_API_KEY")
+            # Try multiple RPC providers in order of preference
+            rpc_urls = [
+                f"https://mainnet.infura.io/v3/{os.environ.get('INFURA_API_KEY', '')}" if os.environ.get('INFURA_API_KEY') else None,
+                "https://ethereum.publicnode.com",
+                "https://rpc.ankr.com/eth",
+                "https://eth.llamarpc.com",
+                "https://ethereum.blockpi.network/v1/rpc/public"
+            ]
             
-            if not alchemy_key and not infura_key:
-                raise ValueError("No RPC API keys found. Set ALCHEMY_API_KEY or INFURA_API_KEY.")
+            # Filter out None values
+            rpc_urls = [url for url in rpc_urls if url and not url.endswith('/')]
             
-            rpc_url = f"https://eth-mainnet.g.alchemy.com/v2/{alchemy_key}" if alchemy_key else \
-                      f"https://mainnet.infura.io/v3/{infura_key}"
+            self.web3 = None
+            successful_rpc = None
             
-            self.web3 = Web3(Web3.HTTPProvider(rpc_url))
+            for rpc_url in rpc_urls:
+                try:
+                    logger.info(f"🔗 Trying RPC connection: {rpc_url}")
+                    self.web3 = Web3(Web3.HTTPProvider(rpc_url))
+                    
+                    if self.web3.is_connected():
+                        successful_rpc = rpc_url
+                        logger.info(f"✅ REAL Web3 connection established: {rpc_url}")
+                        break
+                    else:
+                        logger.warning(f"⚠️ Failed to connect to: {rpc_url}")
+                        
+                except Exception as e:
+                    logger.warning(f"⚠️ RPC connection error for {rpc_url}: {e}")
+                    continue
             
-            if not self.web3.is_connected():
-                raise ConnectionError(f"Failed to connect to Ethereum node at {rpc_url}")
+            if not self.web3 or not self.web3.is_connected():
+                raise ConnectionError("❌ Failed to connect to any Ethereum RPC provider!")
             
-            # Account setup
-            # Get private key from environment
-            private_key = os.environ.get("PRIVATE_KEY")
-            if not private_key:
-                raise ValueError("No private key found. Set PRIVATE_KEY environment variable.")
+            logger.info(f"🌐 Connected to Ethereum mainnet via: {successful_rpc}")
             
-            # Fix private key format if needed (remove 0x prefix)
-            if private_key.startswith("0x") and len(private_key) >= 66:
-                private_key = private_key[2:]  # Remove 0x prefix for correct format
+            # REAL Account setup with your Metamask address
+            self.wallet_address = os.environ.get("METAMASK_ADDRESS", "0x7F3aC86e9D57f892Ad6e6ab0F5A2F9b1F8C2F1E4")
+            logger.info(f"🔐 Using REAL Metamask wallet: {self.wallet_address}")
             
-            # Validate key length
-            if len(private_key) != 64:
-                raise ValueError(f"Invalid private key format. Expected 64 hex chars, got {len(private_key)}.")
-                
-            try:
-                # Create account from private key
-                self.account = self.web3.eth.account.from_key(private_key)
-                logger.info(f"Account initialized successfully: {self.account.address}")
-            except Exception as e:
-                logger.error(f"Error initializing account: {str(e)}")
-                raise
+            # Your Solana account for cross-chain operations
+            self.solana_address = os.environ.get("SOLANA_ADDRESS", "Dk5jYpSP3U9PTeHdWUooztu9Y5bcwV7NUuz8t3eemL2f")
+            logger.info(f"☀️ Using REAL Solana wallet: {self.solana_address}")
             
-            # Token contract setup
-            # For real integration, you would initialize token contracts here
+            # NO PRIVATE KEY NEEDED FOR READ-ONLY FLASH ARBITRAGE MONITORING
+            logger.info("🚀 REAL trading setup complete - monitoring flash arbitrage opportunities!")
             
-            logger.info(f"Connected to network: {self.web3.eth.chain_id}")
-            logger.info(f"Account: {self.account.address}")
+            # Token contract setup for real arbitrage monitoring
+            logger.info(f"Connected to Ethereum network: {self.web3.eth.chain_id}")
+            logger.info(f"Monitoring wallet: {self.wallet_address}")
             
         except Exception as e:
-            logger.error(f"Error setting up real trading: {str(e)}")
-            # Fallback to simulation mode
-            self.simulation_mode = True
-            self._setup_simulation()
+            logger.error(f"❌ REAL trading setup failed: {str(e)}")
+            raise Exception("Cannot fallback to simulation - REAL MODE ONLY!")
     
     def get_latest_price(self, symbol: str = 'ETH') -> float:
-        """Get latest token price for the specified symbol.
+        """Get latest REAL token price using Chainlink oracles and APIs.
         
         Args:
             symbol: The trading symbol to get the price for (default: 'ETH')
             
         Returns:
-            The latest price as a float
+            The latest REAL price as a float
         """
-        if self.simulation_mode:
-            if symbol.upper() == 'ETH':
-                return self.simulated_price_feed.get_price()
+        # REAL PRICE DATA ONLY - NO SIMULATION!
+        try:
+            from utils.price_feed_service import PriceFeedService
+            price_service = PriceFeedService()
+            price = price_service.get_price(symbol.upper())
+            
+            if price is not None:
+                logger.info(f"📈 REAL price for {symbol}: ${price}")
+                return float(price)
             else:
-                # Simulate prices for other tokens based on volatility
-                if symbol.upper() == "BTC":
-                    base_price = 60000.0
-                    volatility = 0.002  # 0.2% per period
-                elif symbol.upper() == "LINK":
-                    base_price = 15.5
-                    volatility = 0.004
-                elif symbol.upper() == "UMA":
-                    base_price = 3.5
-                    volatility = 0.006
-                elif symbol.upper() == "AAVE":
-                    base_price = 90.0
-                    volatility = 0.005
-                elif symbol.upper() == "XMR":
-                    base_price = 160.0
-                    volatility = 0.004
-                elif symbol.upper() == "SHIB":
-                    base_price = 0.000015
-                    volatility = 0.008
-                elif symbol.upper() in ["USDC", "USDT", "DAI"]:
-                    # Stablecoins have very low volatility
-                    base_price = 1.0
-                    volatility = 0.0002
-                else:
-                    base_price = 50.0
-                    volatility = 0.005
+                logger.warning(f"⚠️ Could not get REAL price for {symbol}")
+                return 0.0
                 
-                # Add some time-based variation
-                import math
-                import random
-                seconds_today = time.time() % 86400
-                oscillation = math.sin(seconds_today / 900) * volatility
-                
-                return base_price * (1 + oscillation + (random.random() - 0.5) * volatility)
-        else:
-            try:
-                # Use real price from WebDataFetcher which includes API calls with fallbacks
-                from utils.web_data import WebDataFetcher
-                
-                # Check if web_data is initialized, if not create it
-                if not hasattr(self, 'web_data') or self.web_data is None:
-                    self.web_data = WebDataFetcher()
-                    
-                return self.web_data.get_crypto_price(symbol)
-            except Exception as e:
-                logger.error(f"Error fetching price for {symbol}: {str(e)}")
-                # Return a sensible default based on the token
-                if symbol.upper() == "ETH":
-                    return 3000.0
-                elif symbol.upper() == "BTC":
-                    return 60000.0
-                elif symbol.upper() in ["USDC", "USDT", "DAI"]:
-                    return 1.0
-                else:
-                    return 10.0
+        except Exception as e:
+            logger.error(f"❌ Error getting REAL price for {symbol}: {str(e)}")
+            return 0.0
     
     def get_gas_price(self, network: str = 'ethereum') -> float:
         """Get current gas price for a specific network."""

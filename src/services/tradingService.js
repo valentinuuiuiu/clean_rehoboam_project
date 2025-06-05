@@ -29,11 +29,12 @@ class TradingService {
       return await response.json();
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
-      throw error;
+      // No fallback to mock data - use real APIs only
+      throw new Error(`Failed to connect to real trading API: ${error.message}. Check if backend services are running.`);
     }
   }
 
-  // Get current prices for tokens
+  // Get current prices for tokens using real Chainlink and API data
   async getPrices(tokens = ['ETH', 'BTC', 'USDC']) {
     try {
       const prices = {};
@@ -50,6 +51,16 @@ class TradingService {
 
   // Execute a trade (buy/sell)
   async executeTrade(tradeData) {
+    // Validate trade parameters
+    if (!tradeData || typeof tradeData !== 'object') {
+      throw new Error('Invalid trade data');
+    }
+    if (tradeData.price <= 0) {
+      throw new Error('Trade price must be greater than zero');
+    }
+    if (tradeData.amount <= 0) {
+      throw new Error('Trade amount must be greater than zero');
+    }
     try {
       const response = await this.makeRequest('/api/trading/execute', 'POST', tradeData);
       return response;

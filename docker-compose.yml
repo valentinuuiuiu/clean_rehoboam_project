@@ -37,15 +37,16 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:5002
-      - VITE_MCP_URL=http://localhost:3001
+      - VITE_MCP_URL=http://mcp-registry:3001
+      - VITE_ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
     depends_on:
       - rehoboam-api
     networks:
       - rehoboam-network
 
-  # PostgreSQL Database
+  # PostgreSQL Database with pgvector
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       - POSTGRES_DB=rehoboam
       - POSTGRES_USER=rehoboam

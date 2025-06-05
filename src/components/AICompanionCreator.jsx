@@ -110,20 +110,25 @@ const AICompanionCreator = () => {
       // If we have companions but none selected, select the first one
       if (data.length > 0 && !selectedCompanion) {
         setSelectedCompanion(data[0]);
-        fetchConversationHistory(data[0].name);
+        // Don't auto-fetch conversation to avoid circular calls
       }
       
     } catch (error) {
       console.error("Error fetching companions:", error);
+      // Use a more user-friendly message for connection errors
+      const errorMessage = error.message.includes('fetch') 
+        ? 'Unable to connect to AI companion service' 
+        : error.message;
+      
       toast({
         title: "Could not load companions",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCompanion, toast, fetchConversationHistory]);
+  }, [selectedCompanion, toast]); // Removed fetchConversationHistory to break dependency loop
   
   // Handle form input change
   const handleFormChange = (e) => {
@@ -199,38 +204,71 @@ const AICompanionCreator = () => {
   
   // Send message to the companion
   const sendUserMessage = async () => {
-    if (!userInput.trim() || !selectedCompanion) return;
+    console.log('sendUserMessage called', { userInput, selectedCompanion });
+    
+    if (!userInput.trim() || !selectedCompanion) {
+      console.log('Early return:', { userInputTrimmed: userInput.trim(), selectedCompanion });
+      return;
+    }
+    
+    const originalInput = userInput;
     
     // Add user message to conversation immediately for UI responsiveness
-    const newMessage = { role: 'user', content: userInput };
+    const newMessage = { role: 'user', content: userInput, timestamp: new Date().toISOString() };
     setConversationHistory(prev => [...prev, newMessage]);
     
     // Clear input field
     setUserInput('');
     
     try {
+      console.log('Making API call to:', `/api/companions/${selectedCompanion.name}/interact`);
+      
       const response = await fetch(`/api/companions/${selectedCompanion.name}/interact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: userInput }),
+        body: JSON.stringify({ message: originalInput }),
       });
       
+      console.log('API response status:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error(`Error sending message: ${response.statusText}`);
+        // If the API fails, provide a fallback response
+        if (response.status === 404) {
+          throw new Error('AI companion service not available');
+        } else {
+          throw new Error(`Error sending message: ${response.statusText}`);
+        }
       }
       
       const data = await response.json();
+      console.log('API response data:', data);
       
       // Add companion's response to conversation
-      setConversationHistory(prev => [...prev, { role: 'companion', content: data.response }]);
+      const companionMessage = { 
+        role: 'companion', 
+        content: data.response || data.message || 'I received your message but had trouble responding.', 
+        timestamp: new Date().toISOString()
+      };
+      console.log('Adding companion message:', companionMessage);
+      setConversationHistory(prev => [...prev, companionMessage]);
       
     } catch (error) {
       console.error("Error sending message:", error);
+      
+      // Provide fallback response for better UX
+      const fallbackResponse = {
+        role: 'companion',
+        content: `I appreciate your message: "${originalInput}". However, I'm experiencing some technical difficulties right now. Please try again in a moment. In the meantime, know that I'm Akhenaton, and I'm here to help you with trading insights and philosophical discussions about the markets.`,
+        timestamp: new Date().toISOString(),
+        isError: true
+      };
+      setConversationHistory(prev => [...prev, fallbackResponse]);
+      
       toast({
-        title: "Message failed",
-        description: error.message,
+        title: "Connection issue",
+        description: "Chat temporarily unavailable, but your message was noted",
         variant: "destructive",
       });
     }
@@ -238,6 +276,7 @@ const AICompanionCreator = () => {
   
   // Handle companion selection
   const handleSelectCompanion = (companion) => {
+    console.log('Selecting companion:', companion);
     setSelectedCompanion(companion);
     fetchConversationHistory(companion.name);
   };
@@ -251,12 +290,12 @@ const AICompanionCreator = () => {
   useEffect(() => {
     fetchCompanions();
     
-    // Set up interval to periodically fetch companions (every 30 seconds)
-    const intervalId = setInterval(fetchCompanions, 30000);
+    // Set up interval to periodically fetch companions (every 5 minutes instead of 30 seconds)
+    const intervalId = setInterval(fetchCompanions, 300000); // 5 minutes
     
     // Clean up on unmount
     return () => clearInterval(intervalId);
-  }, [fetchCompanions]);
+  }, []); // Remove fetchCompanions from dependencies to prevent excessive calls
   
   // Process websocket messages
   useEffect(() => {
@@ -384,8 +423,8 @@ const AICompanionCreator = () => {
                         <h3 className="font-medium">{companion.name}</h3>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {companion.traits.slice(0, 3).map(trait => (
-                            <Badge key={trait} variant="outline" className="text-xs">
-                              {trait}
+                            <Badge key={trait.name || trait} variant="outline" className="text-xs">
+                              {trait.name || trait}
                             </Badge>
                           ))}
                         </div>
@@ -447,11 +486,17 @@ const AICompanionCreator = () => {
                     <div className="flex gap-2">
                       <Input 
                         value={userInput} 
-                        onChange={(e) => setUserInput(e.target.value)}
+                        onChange={(e) => {
+                          console.log('Input changed:', e.target.value);
+                          setUserInput(e.target.value);
+                        }}
                         placeholder="Type your message..."
                         onKeyPress={(e) => e.key === 'Enter' && sendUserMessage()}
                       />
-                      <Button onClick={sendUserMessage}>Send</Button>
+                      <Button onClick={() => {
+                        console.log('Send button clicked');
+                        sendUserMessage();
+                      }}>Send</Button>
                     </div>
                   </>
                 ) : (

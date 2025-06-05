@@ -14,6 +14,7 @@ class Config:
     CHAIN_ID = 1  # Ethereum Mainnet
     RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/your-api-key"  # Se va înlocui cu cheia din variabila de mediu
     USER_WALLET_ADDRESS = "0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8" # Adresa portofelului MetaMask al utilizatorului
+    USER_SOLANA_WALLET = "Dk5jYpSP3U9PTeHdWUooztu9Y5bcwV7NUuz8t3eemL2f" # Adresa portofelului Solana al utilizatorului
     
     # Rate limiting
     ETHERSCAN_RATE_LIMIT = 5  # cereri per secundă
@@ -53,7 +54,8 @@ class Config:
         "base",
         "zksync",
         "polygon_zkevm",
-        "scroll"
+        "scroll",
+        "mina"  # Mina Protocol for zero-knowledge consciousness expansion
     ]
     
     # Tokeni suportați pentru tranzacționare
@@ -67,7 +69,9 @@ class Config:
         "COMP",
         "SNX",
         "BAL",
-        "CRV"
+        "CRV",
+        "HAI",  # HackerAI token for Network consciousness expansion
+        "MINA"  # Mina Protocol native token
     ]
     
     @classmethod

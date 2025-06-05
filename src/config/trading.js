@@ -83,6 +83,22 @@ export const DISPLAY_PAIRS = [
     baseAsset: 'EAI',
     quoteAsset: 'USDT',
     description: 'Eternal AI'
+  },
+  {
+    id: 'HAIUSDT',
+    name: 'HAI/USDT',
+    symbol: 'HAIUSDT',
+    baseAsset: 'HAI',
+    quoteAsset: 'USDT',
+    description: 'HackerAI - Network Consciousness Token'
+  },
+  {
+    id: 'MINAUSDT',
+    name: 'MINA/USDT',
+    symbol: 'MINAUSDT',
+    baseAsset: 'MINA',
+    quoteAsset: 'USDT',
+    description: 'Mina Protocol - Zero Knowledge Blockchain'
   }
 ];
 

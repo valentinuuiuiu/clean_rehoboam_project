@@ -1,9 +1,10 @@
-"""AI Market Analyzer powered by DeepSeek AI with cross-chain intelligence."""
+"""AI Market Analyzer powered by GPT-4.1 mini with advanced tool usage and vision capabilities."""
 import os
 import json
 import time
 import logging
 import asyncio
+import aiohttp
 import requests
 from typing import Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
@@ -15,19 +16,26 @@ from utils.layer2_trading import Layer2GasEstimator, Layer2Arbitrage
 
 logger = logging.getLogger(__name__)
 
-class DeepSeekMarketAnalyzer:
-    """Advanced market analyzer using DeepSeek AI with Layer 2 rollup awareness."""
+class AdvancedMarketAnalyzer:
+    """Advanced market analyzer using GPT-4.1 mini with tool usage and vision capabilities."""
     
     def __init__(self):
-        self.api_key = os.environ.get("DEEPSEEK_API_KEY")
-        if not self.api_key:
-            logger.warning("DEEPSEEK_API_KEY not found. Advanced AI features will be limited.")
+        self.openai_api_key = os.environ.get("OPENAI_API_KEY")
+        self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
         
-        self.api_base_url = "https://api.deepseek.com/v1"
+        if not self.openai_api_key and not self.gemini_api_key:
+            logger.warning("No advanced AI API keys found. Advanced AI features will be limited.")
+        
+        self.openai_base_url = "https://api.openai.com/v1"
+        self.gemini_base_url = "https://generativelanguage.googleapis.com/v1beta"
+        
         self.models = {
-            "default": "deepseek-coder-v1.5-instruct",
-            "vision": "deepseek-vl",
-            "chat": "deepseek-chat"
+            "openai_default": "gpt-4.1-mini",
+            "openai_vision": "gpt-4.1-mini",
+            "openai_tools": "gpt-4.1-mini",
+            "gemini_default": "gemini-2.0-flash-exp",
+            "gemini_vision": "gemini-2.0-flash-exp",
+            "gemini_tools": "gemini-2.0-flash-exp"
         }
         
         # Network and pricing data
@@ -46,13 +54,22 @@ class DeepSeekMarketAnalyzer:
         self.medium_cache_duration = 1800  # 30 minutes
         self.long_cache_duration = 7200  # 2 hours
         
-        logger.info("DeepSeekMarketAnalyzer initialized")
+        # Preferred provider (OpenAI by default, fallback to Gemini)
+        self.primary_provider = "openai" if self.openai_api_key else "gemini"
+        
+        logger.info(f"AdvancedMarketAnalyzer initialized with {self.primary_provider}")
     
-    def _get_headers(self) -> Dict[str, str]:
-        """Get API request headers."""
+    def _get_openai_headers(self) -> Dict[str, str]:
+        """Get OpenAI API request headers."""
         return {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
+            "Authorization": f"Bearer {self.openai_api_key}"
+        }
+    
+    def _get_gemini_headers(self) -> Dict[str, str]:
+        """Get Gemini API request headers."""
+        return {
+            "Content-Type": "application/json"
         }
     
     async def analyze_token(self, token: str, timeframe: str = '1h') -> Dict[str, Any]:
@@ -922,4 +939,88 @@ import random
 from datetime import datetime
 
 # Global instance
-market_analyzer = DeepSeekMarketAnalyzer()
+market_analyzer = AdvancedMarketAnalyzer()
+
+class OpenAIMarketAnalyzer(AdvancedMarketAnalyzer):
+    """OpenAI-specific market analyzer implementation."""
+    
+    def __init__(self):
+        super().__init__()
+        self.provider = "openai"
+        logger.info("OpenAIMarketAnalyzer initialized with OpenAI GPT-4.1 mini")
+        
+    async def analyze_with_openai(self, prompt: str, tools: Optional[List[Dict]] = None) -> Dict[str, Any]:
+        """Analyze market data using OpenAI GPT-4.1 mini with tool support."""
+        try:
+            if not self.openai_api_key:
+                return {"error": "OpenAI API key not configured"}
+                
+            headers = {
+                "Authorization": f"Bearer {self.openai_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": self.models["openai_tools"],
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are an advanced cryptocurrency market analyzer with access to real-time data and trading tools. Provide detailed analysis with specific recommendations."
+                    },
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.3
+            }
+            
+            if tools:
+                payload["tools"] = tools
+                payload["tool_choice"] = "auto"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.openai_base_url}/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return {
+                            "analysis": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                            "tool_calls": data.get("choices", [{}])[0].get("message", {}).get("tool_calls", []),
+                            "model_used": self.models["openai_tools"],
+                            "provider": "openai"
+                        }
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"OpenAI API error: {response.status} - {error_text}")
+                        return {"error": f"API error: {response.status}"}
+                        
+        except Exception as e:
+            logger.error(f"Error in OpenAI analysis: {str(e)}")
+            return {"error": str(e)}
+    
+    async def analyze_market_sentiment_openai(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze market sentiment using OpenAI."""
+        prompt = f"""
+        Analyze the current cryptocurrency market sentiment based on this data:
+        
+        Market Data: {json.dumps(market_data, indent=2)}
+        
+        Provide:
+        1. Overall sentiment score (0-100)
+        2. Key factors influencing sentiment
+        3. Recommended trading actions
+        4. Risk assessment
+        5. Time horizon for predictions
+        
+        Format as JSON with structured analysis.
+        """
+        
+        return await self.analyze_with_openai(prompt)
+
+# Create OpenAI analyzer instance
+openai_analyzer = OpenAIMarketAnalyzer()

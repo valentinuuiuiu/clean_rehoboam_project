@@ -33,7 +33,7 @@ class AutomatedTradingAgent:
     
     def __init__(self):
         # Set to False to use real trading mode
-        os.environ["SIMULATION_MODE"] = "false"
+        os.environ["SIMULATION_MODE"] = "true"
         
         # Initialize the base trading agent
         self.agent = TradingAgent()

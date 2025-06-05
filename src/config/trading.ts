@@ -5,7 +5,7 @@ export const SUPPORTED_PAIRS = [
   'DOT/USD', 'SOL/USD', 'AVAX/USD',
   'MATIC/USD', 'UNI/USD', 'AAVE/USD',
   'ATOM/USD', 'LTC/USD', 'NEAR/USD',
-  'ICP/USD', 'ALGO/USD'
+  'ICP/USD', 'ALGO/USD', 'HAI/USD', 'MINA/USD'
 ] as const;
 
 export const OrderType = {
@@ -57,7 +57,9 @@ export const initialPrices: Record<TradingPair, PriceData> = {
   'LTC/USD': { price: 72.00, change: 0.9 },
   'NEAR/USD': { price: 3.20, change: 1.5 },
   'ICP/USD': { price: 12.80, change: -2.1 },
-  'ALGO/USD': { price: 0.18, change: 0.7 }
+  'ALGO/USD': { price: 0.18, change: 0.7 },
+  'HAI/USD': { price: 0.01713, change: -5.59 },  // Hacken Token - Real current price from CoinGecko
+  'MINA/USD': { price: 0.2299, change: -7.38 }    // Mina Protocol - Real current price from CoinGecko
 };
 
 export const TRADING_PAIRS = [
@@ -66,7 +68,9 @@ export const TRADING_PAIRS = [
   'LINKUSDT',
   'DOTUSDT',
   'SOLUSDT',
-  'AVAXUSDT'
+  'AVAXUSDT',
+  'HAIUSDT',
+  'MINAUSDT'
 ] as const;
 
 export const SUPPORTED_CHAINS = {

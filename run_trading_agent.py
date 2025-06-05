@@ -19,18 +19,15 @@ logging.basicConfig(
 
 logger = logging.getLogger("TradingRunner")
 
-async def run_agent(simulation_mode=False):
+async def run_agent():
     """
-    Rulează agentul de tranzacționare în modul specificat.
-    
-    Args:
-        simulation_mode: Dacă este True, rulează în modul simulare. Dacă este False, rulează în modul real.
+    🚀 Rulează agentul de tranzacționare în modul REAL ONLY - NO SIMULATION!
     """
     try:
-        # Setăm modul simulare sau real în funcție de parametru
-        os.environ["SIMULATION_MODE"] = str(simulation_mode).lower()
+        # FORCE REAL MODE ONLY!
+        os.environ["SIMULATION_MODE"] = "false"
         
-        logger.info(f"Pornirea agentului de tranzacționare în modul: {'SIMULARE' if simulation_mode else 'REAL'}")
+        logger.info("🚀 Pornirea agentului de tranzacționare în modul: REAL ONLY!")
         
         # Inițializăm agentul
         agent = AutomatedTradingAgent()
@@ -47,8 +44,8 @@ async def test_agent():
     try:
         logger.info("Începe testarea agentului de tranzacționare...")
         
-        # Forțăm modul simulare pentru teste
-        os.environ["SIMULATION_MODE"] = "true"
+        # FORCE REAL MODE - NO SIMULATION EVEN FOR TESTS!
+        os.environ["SIMULATION_MODE"] = "false"
         
         # Inițializăm agentul
         agent = AutomatedTradingAgent()
@@ -76,7 +73,6 @@ async def main():
     
     parser = argparse.ArgumentParser(description='Agent de tranzacționare automată')
     parser.add_argument('--test', action='store_true', help='Rulează doar teste de funcționalitate')
-    parser.add_argument('--simulation', action='store_true', help='Rulează în modul simulare')
     args = parser.parse_args()
     
     if args.test:
@@ -88,8 +84,8 @@ async def main():
             logger.error("Testele au eșuat. Verificați erorile de mai sus.")
         
     else:
-        # Rulăm agentul în modul specificat
-        await run_agent(simulation_mode=args.simulation)
+        # Rulăm agentul în modul REAL ONLY!
+        await run_agent()
 
 if __name__ == "__main__":
     try:

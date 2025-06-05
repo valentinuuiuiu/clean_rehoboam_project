@@ -19,9 +19,115 @@ logger = logging.getLogger(__name__)
 
 class PriceFeedService:
     def __init__(self):
-        self.api_key = os.getenv('ETHERSCAN_API_KEY')
-        if not self.api_key:
+        # Real API keys from .env
+        self.etherscan_api_key = os.getenv('ETHERSCAN_API_KEY')
+        self.infura_api_key = os.getenv('INFURA_API_KEY')
+        self.alchemy_api_key = os.getenv('ALCHEMY_API_KEY')
+        
+        if not self.etherscan_api_key:
             raise ValueError("ETHERSCAN_API_KEY environment variable is required")
+        if not self.infura_api_key:
+            raise ValueError("INFURA_API_KEY environment variable is required for Web3 connections")
+
+        # Initialize Web3 connections using Infura
+        try:
+            from web3 import Web3
+            
+            # Mainnet Connection
+            self.w3_mainnet = None
+            if self.infura_api_key:
+                try:
+                    infura_mainnet_url = f"https://mainnet.infura.io/v3/{self.infura_api_key}"
+                    self.w3_mainnet = Web3(Web3.HTTPProvider(infura_mainnet_url))
+                    if self.w3_mainnet.is_connected():
+                        logger.info(f"✅ Connected to Ethereum Mainnet via Infura: {infura_mainnet_url}")
+                    else:
+                        logger.warning(f"Infura Mainnet connection test failed: {infura_mainnet_url}")
+                        self.w3_mainnet = None
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Infura Mainnet provider: {e}")
+                    self.w3_mainnet = None
+
+            if not self.w3_mainnet and self.alchemy_api_key:
+                try:
+                    alchemy_mainnet_url = f"https://eth-mainnet.g.alchemy.com/v2/{self.alchemy_api_key}"
+                    self.w3_mainnet = Web3(Web3.HTTPProvider(alchemy_mainnet_url))
+                    if self.w3_mainnet.is_connected():
+                        logger.info(f"✅ Connected to Ethereum Mainnet via Alchemy: {alchemy_mainnet_url}")
+                    else:
+                        logger.warning(f"Alchemy Mainnet connection test failed: {alchemy_mainnet_url}")
+                        self.w3_mainnet = None
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Alchemy Mainnet provider: {e}")
+                    self.w3_mainnet = None
+            
+            if not self.w3_mainnet:
+                logger.error("❌ Failed to connect to Ethereum Mainnet using Infura or Alchemy.")
+
+            # Arbitrum Connection
+            self.w3_arbitrum = None
+            if self.infura_api_key:
+                try:
+                    infura_arbitrum_url = f"https://arbitrum-mainnet.infura.io/v3/{self.infura_api_key}"
+                    self.w3_arbitrum = Web3(Web3.HTTPProvider(infura_arbitrum_url))
+                    if self.w3_arbitrum.is_connected():
+                        logger.info(f"✅ Connected to Arbitrum Mainnet via Infura: {infura_arbitrum_url}")
+                    else:
+                        logger.warning(f"Infura Arbitrum connection test failed: {infura_arbitrum_url}")
+                        self.w3_arbitrum = None
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Infura Arbitrum provider: {e}")
+                    self.w3_arbitrum = None
+
+            if not self.w3_arbitrum and self.alchemy_api_key:
+                try:
+                    alchemy_arbitrum_url = f"https://arb-mainnet.g.alchemy.com/v2/{self.alchemy_api_key}"
+                    self.w3_arbitrum = Web3(Web3.HTTPProvider(alchemy_arbitrum_url))
+                    if self.w3_arbitrum.is_connected():
+                        logger.info(f"✅ Connected to Arbitrum Mainnet via Alchemy: {alchemy_arbitrum_url}")
+                    else:
+                        logger.warning(f"Alchemy Arbitrum connection test failed: {alchemy_arbitrum_url}")
+                        self.w3_arbitrum = None
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Alchemy Arbitrum provider: {e}")
+                    self.w3_arbitrum = None
+
+            if not self.w3_arbitrum:
+                logger.error("❌ Failed to connect to Arbitrum Mainnet using Infura or Alchemy.")
+
+            # Polygon Connection
+            self.w3_polygon = None
+            if self.infura_api_key:
+                try:
+                    infura_polygon_url = f"https://polygon-mainnet.infura.io/v3/{self.infura_api_key}"
+                    self.w3_polygon = Web3(Web3.HTTPProvider(infura_polygon_url))
+                    if self.w3_polygon.is_connected():
+                        logger.info(f"✅ Connected to Polygon Mainnet via Infura: {infura_polygon_url}")
+                    else:
+                        logger.warning(f"Infura Polygon connection test failed: {infura_polygon_url}")
+                        self.w3_polygon = None
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Infura Polygon provider: {e}")
+                    self.w3_polygon = None
+            
+            if not self.w3_polygon and self.alchemy_api_key:
+                try:
+                    alchemy_polygon_url = f"https://polygon-mainnet.g.alchemy.com/v2/{self.alchemy_api_key}"
+                    self.w3_polygon = Web3(Web3.HTTPProvider(alchemy_polygon_url))
+                    if self.w3_polygon.is_connected():
+                        logger.info(f"✅ Connected to Polygon Mainnet via Alchemy: {alchemy_polygon_url}")
+                    else:
+                        logger.warning(f"Alchemy Polygon connection test failed: {alchemy_polygon_url}")
+                        self.w3_polygon = None
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Alchemy Polygon provider: {e}")
+                    self.w3_polygon = None
+
+            if not self.w3_polygon:
+                logger.error("❌ Failed to connect to Polygon Mainnet using Infura or Alchemy.")
+                
+        except ImportError:
+            logger.error("Web3 library not found. Please install it: pip install web3")
 
         # Enhanced cache with token-specific timestamps and exponential backoff
         self.price_cache: Dict[str, Dict] = {}
@@ -38,14 +144,13 @@ class PriceFeedService:
         self.base_backoff = 1.0
         self.max_backoff = 16.0
 
-        # Token configuration remains the same...
+        # Token configuration with REAL Chainlink feeds only
         self.default_tokens = {
             'ETH': {
                 'address': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
                 'decimals': 8,
                 'min_price': 500,
                 'max_price': 10000,
-                'coingecko_id': 'ethereum',
                 'networks': ['ethereum', 'arbitrum', 'polygon', 'avalanche']
             },
             'BTC': {
@@ -53,7 +158,6 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 10000,
                 'max_price': 150000,
-                'coingecko_id': 'bitcoin',
                 'networks': ['ethereum', 'arbitrum', 'polygon', 'avalanche']
             },
             'MANA': {
@@ -61,7 +165,6 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 0.1,
                 'max_price': 10,
-                'coingecko_id': 'decentraland',
                 'networks': ['ethereum', 'polygon']
             },
             'XRP': {
@@ -69,23 +172,20 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 0.2,
                 'max_price': 5,
-                'coingecko_id': 'ripple',
                 'networks': ['ethereum']
             },
             'XMR': {
-                'address': None,  # Monero doesn't have a Chainlink feed
+                'address': None,  # Use alternative APIs for XMR
                 'decimals': 8,
                 'min_price': 50,
                 'max_price': 1000,
-                'coingecko_id': 'monero',
-                'networks': ['ethereum']  # Will use CoinGecko fallback
+                'networks': ['ethereum']
             },
             'EAI': {
-                'address': None,  # Using CoinGecko as primary source
+                'address': None,  # Use alternative APIs for EAI
                 'decimals': 18,
                 'min_price': 0.01,
                 'max_price': 100,
-                'coingecko_id': 'eternal-ai',
                 'networks': ['ethereum']
             },
             'LINK': {
@@ -93,7 +193,12 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 5,
                 'max_price': 100,
-                'coingecko_id': 'chainlink',
+            },
+            'LINK': {
+                'address': '0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c',
+                'decimals': 8,
+                'min_price': 5,
+                'max_price': 100,
                 'networks': ['ethereum', 'arbitrum', 'polygon', 'avalanche']
             },
             'DOT': {
@@ -101,7 +206,6 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 3,
                 'max_price': 100,
-                'coingecko_id': 'polkadot',
                 'networks': ['ethereum']  # DOT mainly on Ethereum via wrapped token
             },
             'MATIC': {
@@ -109,7 +213,6 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 0.1,
                 'max_price': 5,
-                'coingecko_id': 'matic-network',
                 'networks': ['ethereum', 'polygon']
             },
             'ARB': {
@@ -117,7 +220,6 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 0.1,
                 'max_price': 50,
-                'coingecko_id': 'arbitrum',
                 'networks': ['ethereum', 'arbitrum']
             },
             'AVAX': {
@@ -125,58 +227,37 @@ class PriceFeedService:
                 'decimals': 8,
                 'min_price': 5,
                 'max_price': 500,
-                'coingecko_id': 'avalanche-2',
                 'networks': ['ethereum', 'avalanche']
-            },
-            'DOT': {
-                'address': '0x1C07AFb8E2B827c5A4739C6d59Ae3A5035f28734',  # Chainlink DOT/USD feed
-                'decimals': 8,
-                'min_price': 3,
-                'max_price': 100,
-                'coingecko_id': 'polkadot'
             },
             'SOL': {
                 'address': '0x4ffC43a60e009B551865A93d232E33Fce9f01507',  # Chainlink SOL/USD feed
                 'decimals': 8,
                 'min_price': 20,
                 'max_price': 500,
-                'coingecko_id': 'solana'
-            },
-            'AVAX': {
-                'address': '0xFF3EEb22B5E3dE6e705b44749C2559d704923FD7',  # Chainlink AVAX/USD feed
-                'decimals': 8,
-                'min_price': 5,
-                'max_price': 500,
-                'coingecko_id': 'avalanche-2'
+                'networks': ['ethereum']
             },
             'SHIB': {
                 'address': '0x8dD1CD88F43aF196ae478e91b9F5E4Ac69A97C61',  # Chainlink SHIB/USD feed
                 'decimals': 18,  # Chainlink feed uses 8 decimals for small values
                 'min_price': 0.000000001,  # Adjusted for realistic SHIB prices
                 'max_price': 0.001,
-                'coingecko_id': 'shiba-inu'
+                'networks': ['ethereum']
             },
             'UMA': {
                 'address': '0xf7d57c676ac2bc4997ca5d4d34adc0d72213d29',  # Chainlink UMA/USD feed
                 'decimals': 8,
                 'min_price': 0.1,
                 'max_price': 100,
-                'coingecko_id': 'uma'
+                'networks': ['ethereum']
             },
             'AMP': {
                 'address': '0x8797ABc4641dE76342b8acE9C63e3301DC35e3d8',  # Chainlink AMP/USD feed
                 'decimals': 8,
                 'min_price': 0.001,  # Setting conservative price bounds
                 'max_price': 1.0,
-                'coingecko_id': 'amp-token',
                 'networks': ['ethereum']  # AMP primarily on Ethereum
             },
         }
-
-        # Load custom token configuration if exists
-        self.custom_tokens = {}
-        self.load_custom_tokens()
-
         # Initialize cache with longer validity
         self.cache_validity = 30  # Cache valid for 30 seconds
 
@@ -197,8 +278,7 @@ class PriceFeedService:
             'coinbase': 'wss://ws-feed.pro.coinbase.com',
         }
         
-        # Initialize connections
-        asyncio.create_task(self._init_websocket_connections())
+        # Initialize connections will be done when needed
 
     async def _init_websocket_connections(self):
         """Initialize WebSocket connections to multiple providers."""
@@ -394,10 +474,17 @@ class PriceFeedService:
                     self._cache_price(symbol, price)
                     return price
 
-            # Fallback to CoinGecko with retries
+            # Fallback to alternative APIs (NO COINGECKO!)
             for attempt in range(self.max_retries):
                 try:
-                    price = self._get_coingecko_price(symbol)
+                    # Try CryptoCompare API
+                    price = self._get_cryptocompare_price(symbol)
+                    if price:
+                        self._cache_price(symbol, price)
+                        return price
+
+                    # Try Binance API as secondary fallback
+                    price = self._get_binance_price(symbol)
                     if price:
                         self._cache_price(symbol, price)
                         return price
@@ -466,61 +553,80 @@ class PriceFeedService:
                         logger.info(f"Got Chainlink price for {symbol}: ${price:.8f}")
                         return float(price)
                     logger.warning(f"Invalid price from Chainlink for {symbol}")
-
-            return None
-
+        
         except Exception as e:
-            logger.error(f"Chainlink price fetch failed for {symbol}: {str(e)}")
-            return None
+            logger.error(f"Error getting Chainlink price for {symbol}: {e}")
+        
+        return None
 
-    def _get_coingecko_price(self, symbol: str) -> Optional[float]:
-        """Get price from CoinGecko with enhanced error handling and rate limiting"""
-        coingecko_id = self._get_coingecko_id(symbol)
-        if not coingecko_id:
-            return None
-
+    def _get_cryptocompare_price(self, symbol: str) -> Optional[float]:
+        """Get price from CryptoCompare API - FREE and reliable"""
         try:
             current_time = time.time()
-            if hasattr(self, '_last_coingecko_request'):
-                time_since_last = current_time - self._last_coingecko_request
-                if time_since_last < 2.0:  # Minimum 2 seconds between requests
-                    time.sleep(2.0 - time_since_last)
-            self._last_coingecko_request = current_time
+            if hasattr(self, '_last_cryptocompare_request'):
+                time_since_last = current_time - self._last_cryptocompare_request
+                if time_since_last < 1.0:  # Minimum 1 second between requests
+                    time.sleep(1.0 - time_since_last)
+            self._last_cryptocompare_request = current_time
 
-            url = "https://api.coingecko.com/api/v3/simple/price"
+            url = "https://min-api.cryptocompare.com/data/price"
             params = {
-                "ids": coingecko_id,
-                "vs_currencies": "usd",
-                "precision": "full"
+                "fsym": symbol.upper(),
+                "tsyms": "USD"
             }
 
             headers = {
                 'Accept': 'application/json',
-                'User-Agent': 'Trading Bot/1.0'
+                'User-Agent': 'Flash Arbitrage Bot/1.0'
             }
 
-            response = requests.get(url, params=params, headers=headers, timeout=15)
-
-            if response.status_code == 429:
-                logger.warning(f"CoinGecko rate limit reached for {symbol}, waiting and retrying")
-                time.sleep(2)
-                response = requests.get(url, params=params, headers=headers, timeout=15)
-
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            
             if response.status_code == 200:
                 data = response.json()
-                if coingecko_id in data and "usd" in data[coingecko_id]:
-                    price = float(data[coingecko_id]["usd"])
+                if "USD" in data and isinstance(data["USD"], (int, float)):
+                    price = float(data["USD"])
                     if self._validate_price(symbol, price):
-                        logger.info(f"Got CoinGecko price for {symbol}: ${price:.8f}")
-                        return float(price)
-                    logger.warning(f"Invalid price from CoinGecko for {symbol}")
+                        logger.info(f"Got CryptoCompare price for {symbol}: ${price:.8f}")
+                        return price
+                    logger.warning(f"Invalid price from CryptoCompare for {symbol}")
 
-            logger.error(f"Failed to get valid price from CoinGecko for {symbol}")
+            logger.error(f"Failed to get valid price from CryptoCompare for {symbol}")
             return None
 
         except Exception as e:
-            logger.error(f"Error fetching CoinGecko price for {symbol}: {str(e)}")
+            logger.error(f"Error fetching CryptoCompare price for {symbol}: {str(e)}")
             return None
+
+    def _get_binance_price(self, symbol: str) -> Optional[float]:
+        """Get price from Binance API - FREE and reliable"""
+        try:
+            # Map symbol to Binance trading pair
+            binance_symbol = f"{symbol.upper()}USDT"
+            
+            url = "https://api.binance.com/api/v3/ticker/price"
+            params = {"symbol": binance_symbol}
+
+            headers = {
+                'Accept': 'application/json',
+                'User-Agent': 'Flash Arbitrage Bot/1.0'
+            }
+
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "price" in data:
+                    price = float(data["price"])
+                    if self._validate_price(symbol, price):
+                        logger.info(f"Got Binance price for {symbol}: ${price:.8f}")
+                        return price
+                    logger.warning(f"Invalid price from Binance for {symbol}")
+
+        except Exception as e:
+            logger.error(f"Error fetching Binance price for {symbol}: {str(e)}")
+        
+        return None
 
     def _get_coingecko_id(self, symbol: str) -> Optional[str]:
         """Map token symbols to CoinGecko IDs"""
@@ -691,5 +797,3 @@ class PriceFeedService:
         except Exception as e:
             logger.error(f"Error formatting price: {str(e)}")
             return None
-            
-        #Removed Redundant _can_make_request and _process_batch_updates functions as they are superseded by the enhanced retry and backoff mechanisms in the edited snippet.
