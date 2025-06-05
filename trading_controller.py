@@ -24,6 +24,19 @@ class AdvancedTradingController:
         # Initialize core components
         self.orchestrator = AITradingOrchestrator()
         self.price_feed = PriceFeedService()
+        self.llm_decision_cache = {}
+        self.llm_prompt_template = {
+            'system': "You are a trading strategy enhancer. Analyze the proposed trade and suggest improvements.",
+            'user': """Given market conditions: {market_conditions}
+            
+            Proposed trade: {decision}
+            
+            Please analyze and suggest enhancements considering:
+            1. Risk/reward ratio
+            2. Market volatility
+            3. Gas cost implications
+            4. Portfolio balance"""
+        }
         
         # Trading settings
         self.trading_active = False
@@ -40,6 +53,30 @@ class AdvancedTradingController:
             'start_time': datetime.now(),
             'asset_performance': {}
         }
+
+    async def _apply_llm_enhancement(self, decision: dict, market_data: dict) -> dict:
+        """Enhance trading decision with LLM analysis."""
+        try:
+            # Check cache first
+            decision_hash = hash(json.dumps(decision, sort_keys=True))
+            if decision_hash in self.llm_decision_cache:
+                return self.llm_decision_cache[decision_hash]
+                
+            # Prepare LLM prompt
+            prompt = {
+                **self.llm_prompt_template,
+                'market_conditions': market_data,
+                'decision': decision
+            }
+            
+            # Get LLM enhancement
+            enhanced_decision = await self.orchestrator.llm_enhance_decision(prompt)
+            self.llm_decision_cache[decision_hash] = enhanced_decision
+            return enhanced_decision
+            
+        except Exception as e:
+            logger.error(f"LLM enhancement failed: {str(e)}")
+            return decision
         
         # Initialize Web3 connections for each chain
         self.web3_connections = self._initialize_web3_connections()
@@ -77,8 +114,9 @@ class AdvancedTradingController:
             # 1. Gather market data
             market_data = await self._gather_market_data()
             
-            # 2. Get trading decision from orchestrator
-            decision = await self.orchestrator.analyze_and_execute(market_data)
+            # 2. Get enhanced decision with LLM analysis
+            raw_decision = await self.orchestrator.analyze_and_execute(market_data)
+            decision = await self._apply_llm_enhancement(raw_decision, market_data)
             
             if decision:
                 # 3. Log decision and reasoning
@@ -287,6 +325,39 @@ class AdvancedTradingController:
             except Exception as e:
                 logger.error(f"Error closing position for {asset}: {str(e)}")
                 
+    async def _apply_llm_enhancement(self, decision, market_data):
+        """Apply LLM reasoning to trading decisions with caching."""
+        if not decision:
+            return None
+            
+        try:
+            # Check cache first
+            decision_hash = hash(json.dumps(decision.__dict__ if hasattr(decision, '__dict__') else str(decision), sort_keys=True))
+            if decision_hash in self.llm_decision_cache:
+                return self.llm_decision_cache[decision_hash]
+                
+            # Prepare enhanced context
+            context = {
+                **self.llm_prompt_template,
+                'decision': decision.__dict__ if hasattr(decision, '__dict__') else str(decision),
+                'market_conditions': {
+                    'timestamp': market_data['timestamp'],
+                    'asset_count': len(market_data['assets']),
+                    'assets': {k: v['price'] for k,v in market_data['assets'].items()}
+                }
+            }
+            
+            # Get enhanced decision
+            enhanced_decision = await self.orchestrator.llm_enhance_decision(context)
+            if enhanced_decision:
+                self.llm_decision_cache[decision_hash] = enhanced_decision
+                return enhanced_decision
+            return decision
+            
+        except Exception as e:
+            logger.error(f"LLM enhancement failed: {str(e)}")
+            return decision
+
     def _save_performance_metrics(self):
         """Save performance metrics to file."""
         metrics = {
