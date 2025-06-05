@@ -8,6 +8,10 @@ for the Rehoboam AI trading system.
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 from dataclasses import dataclass, field
 from enum import Enum
 class SecurityError(Exception):

@@ -12,6 +12,10 @@ import json
 import jwt
 from pydantic import BaseModel, Field
 
+# Load environment variables first
+from dotenv import load_dotenv
+load_dotenv()
+
 # Import our custom modules
 from utils.websocket_server import EnhancedWebSocketServer as WebSocketServer
 from utils.rehoboam_ai import RehoboamAI
@@ -2571,7 +2575,7 @@ async def get_orchestrator_status():
         
     except Exception as e:
         logger.error(f"Error getting orchestrator status: {str(e)}")
-=======
+
 # Individual price endpoints for flash arbitrage system
 @app.get("/api/price/{symbol}")
 async def get_individual_price(symbol: str):
@@ -2697,7 +2701,7 @@ async def get_batch_prices(symbols: str = "BTC,ETH,LINK"):
         
     except Exception as e:
         logger.error(f"Error in batch price fetch: {str(e)}")
->>>>>>> Stashed changes
+
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handling
@@ -2715,8 +2719,6 @@ async def general_exception_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    from dotenv import load_dotenv
-    load_dotenv()
     
     port = int(os.getenv('API_PORT', 12001))
     print(f"Starting API server on http://0.0.0.0:{port}")

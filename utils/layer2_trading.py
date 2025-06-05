@@ -52,15 +52,7 @@ class Layer2GasEstimator:
                 try:
                     web3 = Web3(Web3.HTTPProvider(rpc_url))
                     
-                    # Add POA middleware for Polygon (which uses Proof of Authority)
-                    if network_id == 'polygon':
-                        try:
-                            # Try to import POA middleware
-                            from web3.middleware import geth_poa_middleware
-                            web3.middleware_onion.inject(geth_poa_middleware, layer=0)
-                        except ImportError:
-                            # POA middleware not available, we'll handle POA chains gracefully
-                            logger.info("POA middleware not available, using fallback for POA chains")
+                    # POA middleware is automatic in web3 v7+ for Polygon and other POA chains
                     
                     if web3.is_connected():
                         self.web3_connections[network_id] = web3

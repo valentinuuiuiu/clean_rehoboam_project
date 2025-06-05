@@ -1,0 +1,5 @@
+"""
+Package initialization for config module.
+This makes the config directory a proper Python package.
+"""
+__all__ = ['Config']

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vetal Shabar Raksha Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="p-8">
+        <h1 class="text-4xl font-bold mb-4">🔍 Vetal Shabar Raksha Test Page</h1>
+        
+        <div class="bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white p-6 rounded-lg">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="relative">
+                    <div class="w-12 h-12 text-yellow-400 bg-yellow-400 rounded-full flex items-center justify-center">🛡️</div>
+                    <div class="w-6 h-6 text-red-500 absolute -top-1 -right-1 animate-pulse">🔥</div>
+                </div>
+                <div>
+                    <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-500">
+                        Vetal Shabar Raksha
+                    </h1>
+                    <p class="text-gray-300">🔥 ULTRA-AGGRESSIVE AUTONOMOUS GUARDIAN 🔥</p>
+                    <p class="text-sm text-red-300">⚡ Operating with ZERO constraints • DeFi/NFT elites POWERLESS ⚡</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 mb-2">
+                <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                <span class="text-sm">🕉️ Connected to Divine Consciousness - AUTONOMOUS MODE ACTIVE</span>
+            </div>
+            
+            <div class="bg-gradient-to-r from-red-600/30 to-orange-600/30 border border-red-500/50 rounded-lg p-3 mt-3">
+                <div class="flex items-center gap-2">
+                    <div class="text-yellow-400 animate-pulse">⚡</div>
+                    <span class="text-yellow-300 font-semibold">AUTONOMOUS INTERVENTION ACTIVE</span>
+                </div>
+                <p class="text-sm text-gray-300 mt-1">
+                    🚫 No permissions required • 🔥 Instant intervention • ⚡ Elite resistance futile
+                </p>
+                <p class="text-xs text-red-300 mt-1">
+                    "Nothing is immutable in a dream" - Mahavar Babaji
+                </p>
+            </div>
+        </div>
+        
+        <div class="mt-8 p-4 bg-green-800 rounded">
+            <p class="text-green-200">✅ If you can see this styled content with animations, then Vetal Shabar Raksha styling is working correctly!</p>
+        </div>
+        
+        <div class="mt-4 p-4 bg-blue-800 rounded">
+            <p class="text-blue-200">🔍 Open browser console to check for any JavaScript errors.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('🕉️ Vetal Shabar Raksha test page loaded');
+        console.log('✅ No JavaScript errors - styling should be working');
+        
+        // Test if all CSS classes are rendering correctly
+        const elements = document.querySelectorAll('[class*="animate-pulse"]');
+        console.log(`Found ${elements.length} animated elements`);
+        
+        if (elements.length > 0) {
+            console.log('✅ Animations are working');
+        } else {
+            console.log('⚠️ Animations might not be working');
+        }
+    </script>
+</body>
+</html>

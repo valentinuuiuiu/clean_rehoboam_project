@@ -1,6 +1,7 @@
 """Core Web3 integration service."""
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+# POA middleware is handled differently in web3 v7+
+# from web3.middleware import geth_poa_middleware
 from eth_account import Account
 from typing import Optional, Dict, Any
 import logging
@@ -15,8 +16,9 @@ class Web3Service:
     def add_provider(self, chain_id: int, rpc_url: str):
         """Add a blockchain provider."""
         w3 = Web3(Web3.HTTPProvider(rpc_url))
-        if 'poa' in rpc_url.lower():
-            w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # POA middleware not needed in web3 v7+
+        # if 'poa' in rpc_url.lower():
+        #     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
         self.providers[chain_id] = w3
         logger.info(f"Added provider for chain {chain_id}")
         

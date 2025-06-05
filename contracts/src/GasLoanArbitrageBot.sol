@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+import "./FlashArbitrageBot.sol";
+
+/**
+ * @title GasLoanArbitrageBot
+ * @dev Flash arbitrage bot with automatic gas fee repayment
+ * @notice I cover gas fees upfront, contract pays me back from YOUR profits
+ */
+contract GasLoanArbitrageBot is FlashArbitrageBot {
+    
+    // Your wallet - gets ALL profits after gas loan repayment
+    address public immutable YOUR_WALLET = 0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8;
+    
+    // My deployer wallet - gets repaid for gas fees only
+    address public immutable GAS_LENDER;
+    
+    // Gas fee loan tracking
+    uint256 public gasLoanAmount;
+    uint256 public gasLoanRepaid;
+    bool public gasLoanFullyRepaid;
+    
+    // Profit distribution
+    uint256 public totalProfitsGenerated;
+    uint256 public profitsSentToYou;
+    
+    event GasLoanRepayment(uint256 amount, uint256 remaining);
+    event ProfitDistribution(uint256 totalProfit, uint256 gasRepayment, uint256 yourProfit);
+    
+    constructor(uint256 _gasLoanAmount) FlashArbitrageBot(YOUR_WALLET) {
+        gasLoanAmount = _gasLoanAmount;
+        gasLoanFullyRepaid = false;
+        GAS_LENDER = msg.sender; // The deployer who covers gas fees
+    }
+    
+    /**
+     * @dev Distribute profits: repay gas loan first, then send rest to you
+     */
+    function distributeProfits() internal {
+        uint256 contractBalance = address(this).balance;
+        if (contractBalance == 0) return;
+        
+        totalProfitsGenerated += contractBalance;
+        
+        uint256 gasRepayment = 0;
+        uint256 yourProfit = contractBalance;
+        
+        // If gas loan not fully repaid, repay from profits first
+        if (!gasLoanFullyRepaid) {
+            uint256 remainingDebt = gasLoanAmount - gasLoanRepaid;
+            
+            if (contractBalance >= remainingDebt) {
+                // Enough to fully repay gas loan
+                gasRepayment = remainingDebt;
+                gasLoanRepaid = gasLoanAmount;
+                gasLoanFullyRepaid = true;
+                yourProfit = contractBalance - remainingDebt;
+                
+                // Send gas repayment to lender
+                payable(GAS_LENDER).transfer(gasRepayment);
+                
+                emit GasLoanRepayment(gasRepayment, 0);
+            } else {
+                // Partial repayment
+                gasRepayment = contractBalance;
+                gasLoanRepaid += contractBalance;
+                yourProfit = 0;
+                
+                // Send partial repayment to lender
+                payable(GAS_LENDER).transfer(gasRepayment);
+                
+                emit GasLoanRepayment(gasRepayment, gasLoanAmount - gasLoanRepaid);
+            }
+        }
+        
+        // Send remaining profits to your wallet
+        if (yourProfit > 0) {
+            profitsSentToYou += yourProfit;
+            payable(YOUR_WALLET).transfer(yourProfit);
+        }
+        
+        emit ProfitDistribution(contractBalance, gasRepayment, yourProfit);
+    }
+    
+    /**
+     * @dev Override executeFlashArbitrage to include profit distribution
+     */
+    function executeFlashArbitrage(
+        address asset,
+        address targetAsset,
+        uint256 amount,
+        address buyDEX,
+        address sellDEX,
+        uint256 minProfit
+    ) external override {
+        // Execute the arbitrage
+        super.executeFlashArbitrage(asset, targetAsset, amount, buyDEX, sellDEX, minProfit);
+        
+        // Distribute profits automatically
+        distributeProfits();
+    }
+    
+    /**
+     * @dev Get loan status
+     */
+    function getLoanStatus() external view returns (
+        uint256 totalLoan,
+        uint256 repaid,
+        uint256 remaining,
+        bool fullyRepaid
+    ) {
+        return (
+            gasLoanAmount,
+            gasLoanRepaid,
+            gasLoanAmount - gasLoanRepaid,
+            gasLoanFullyRepaid
+        );
+    }
+    
+    /**
+     * @dev Get profit statistics
+     */
+    function getProfitStats() external view returns (
+        uint256 totalGenerated,
+        uint256 sentToYou,
+        uint256 usedForGasRepayment
+    ) {
+        return (
+            totalProfitsGenerated,
+            profitsSentToYou,
+            gasLoanRepaid
+        );
+    }
+    
+    /**
+     * @dev Emergency function - if something goes wrong, I can forgive the loan
+     */
+    function forgiveLoan() external {
+        require(msg.sender == GAS_LENDER, "Only gas lender can forgive");
+        gasLoanFullyRepaid = true;
+        emit GasLoanRepayment(0, 0);
+    }
+    
+    /**
+     * @dev View function to see current balances
+     */
+    function getBalanceInfo() external view returns (
+        uint256 contractBalance,
+        uint256 yourWalletBalance,
+        uint256 nextDistributionToYou
+    ) {
+        uint256 balance = address(this).balance;
+        uint256 nextToYou = balance;
+        
+        if (!gasLoanFullyRepaid) {
+            uint256 remainingDebt = gasLoanAmount - gasLoanRepaid;
+            if (balance > remainingDebt) {
+                nextToYou = balance - remainingDebt;
+            } else {
+                nextToYou = 0;
+            }
+        }
+        
+        return (
+            balance,
+            YOUR_WALLET.balance,
+            nextToYou
+        );
+    }
+}

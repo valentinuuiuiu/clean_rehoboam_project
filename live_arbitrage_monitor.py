@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-🚀 REAL-TIME ARBITRAGE OPPORTUNITY MONITOR
-Shows live arbitrage opportunities as they appear on mainnet.
-Run this after contract deployment to see your system working.
+🚀 CONSCIOUSNESS-DRIVEN ARBITRAGE MONITOR WITH LLM INTEGRATION
+Real-time arbitrage monitoring integrated with consciousness layers and backend API.
+Executes trades on Sepolia testnet with LLM-powered decision making.
 """
 
 import asyncio
@@ -11,9 +11,23 @@ import time
 from datetime import datetime
 import json
 import os
+from typing import Dict, List, Optional
+from dotenv import load_dotenv
+from web3 import Web3
 
-# Your wallet that will receive profits
-PROFIT_WALLET = "0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8"
+# Load environment variables
+load_dotenv()
+
+# Configuration from environment
+PROFIT_WALLET = os.getenv('USER_WALLET_ADDRESS', '0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8')
+ALCHEMY_API_KEY = os.getenv('ALCHEMY_API_KEY')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+SEPOLIA_CONTRACT = os.getenv('SEPOLIA_ARBITRAGE_CONTRACT', '0x9Dc01D22faB8d46331cc833d92Fa1da4eEcCb36d')
+BACKEND_API_URL = f"http://localhost:{os.getenv('API_PORT', '5002')}"
+
+# Web3 connections
+MAINNET_RPC = f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+SEPOLIA_RPC = f"https://eth-sepolia.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
 
 # DEX APIs for price checking
 UNISWAP_V3_URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
@@ -25,10 +39,103 @@ TRADING_PAIRS = [
     {"token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "token1": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "symbol": "WETH/USDC"}
 ]
 
-class ArbitrageMonitor:
+class ConsciousnessArbitrageMonitor:
+    """Enhanced arbitrage monitor with consciousness integration"""
+    
     def __init__(self):
         self.opportunities_found = 0
         self.total_potential_profit = 0
+        self.consciousness_level = 1
+        self.executed_trades = 0
+        
+        # Initialize Web3 connections
+        self.w3_mainnet = Web3(Web3.HTTPProvider(MAINNET_RPC)) if ALCHEMY_API_KEY else None
+        self.w3_sepolia = Web3(Web3.HTTPProvider(SEPOLIA_RPC)) if ALCHEMY_API_KEY else None
+        
+        print(f"🧠 Consciousness Arbitrage Monitor Initialized")
+        print(f"💰 Profit Wallet: {PROFIT_WALLET}")
+        print(f"🔗 Sepolia Contract: {SEPOLIA_CONTRACT}")
+        print(f"🌐 Backend API: {BACKEND_API_URL}")
+        
+    async def consciousness_analysis(self, opportunity: Dict) -> Dict:
+        """Use LLM to analyze arbitrage opportunity with consciousness"""
+        try:
+            analysis_payload = {
+                "opportunity": opportunity,
+                "consciousness_level": self.consciousness_level,
+                "market_context": {
+                    "total_opportunities": self.opportunities_found,
+                    "executed_trades": self.executed_trades,
+                    "success_rate": self.executed_trades / max(1, self.opportunities_found) * 100
+                }
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{BACKEND_API_URL}/api/consciousness/analyze-arbitrage",
+                    json=analysis_payload,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status == 200:
+                        analysis = await response.json()
+                        print(f"🧠 Consciousness Analysis: {analysis.get('decision', 'No decision')}")
+                        return analysis
+                    else:
+                        print(f"⚠️ Consciousness API error: {response.status}")
+                        
+        except Exception as e:
+            print(f"❌ Consciousness analysis error: {e}")
+            
+        # Fallback simple analysis
+        return {
+            "decision": "EXECUTE" if opportunity["spread"] > 1.0 else "SKIP",
+            "confidence": min(opportunity["spread"] * 20, 100),
+            "reasoning": f"Simple analysis: {opportunity['spread']}% spread"
+        }
+        
+    async def execute_sepolia_arbitrage(self, opportunity: Dict, analysis: Dict) -> bool:
+        """Execute arbitrage on Sepolia testnet"""
+        try:
+            if analysis.get("decision") != "EXECUTE":
+                print(f"🧠 Consciousness decided to SKIP: {analysis.get('reasoning', 'No reason')}")
+                return False
+                
+            execution_payload = {
+                "network": "sepolia",
+                "contract_address": SEPOLIA_CONTRACT,
+                "opportunity": opportunity,
+                "analysis": analysis,
+                "wallet_address": PROFIT_WALLET
+            }
+            
+            print(f"🚀 Executing arbitrage on Sepolia...")
+            print(f"📊 Pair: {opportunity['pair']}")
+            print(f"💰 Spread: {opportunity['spread']}%")
+            print(f"🎯 Confidence: {analysis.get('confidence', 0)}%")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{BACKEND_API_URL}/api/arbitrage/execute-sepolia",
+                    json=execution_payload,
+                    timeout=aiohttp.ClientTimeout(total=120)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("success"):
+                            print(f"✅ ARBITRAGE EXECUTED SUCCESSFULLY!")
+                            print(f"📝 TX Hash: {result.get('tx_hash', 'N/A')}")
+                            print(f"⛽ Gas Used: {result.get('gas_used', 'N/A')}")
+                            self.executed_trades += 1
+                            return True
+                        else:
+                            print(f"❌ Execution failed: {result.get('error', 'Unknown error')}")
+                    else:
+                        print(f"❌ API error: {response.status}")
+                        
+        except Exception as e:
+            print(f"❌ Execution error: {e}")
+            
+        return False
         
     async def get_uniswap_price(self, token0, token1):
         """Get price from Uniswap V3"""
@@ -122,7 +229,7 @@ class ArbitrageMonitor:
                 tasks = [self.check_arbitrage_opportunity(pair) for pair in TRADING_PAIRS]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
-                opportunities = [r for r in results if r and not isinstance(r, Exception)]
+                opportunities = [r for r in results if r and not isinstance(r, Exception) and isinstance(r, dict)]
                 
                 if opportunities:
                     print(f"\n🎉 FOUND {len(opportunities)} ARBITRAGE OPPORTUNITIES!")
@@ -139,10 +246,27 @@ class ArbitrageMonitor:
                         print(f"📊 Buy on: {opp['buy_dex']}")
                         print(f"📊 Sell on: {opp['sell_dex']}")
                         print(f"⏰ Time: {opp['timestamp']}")
+                        
+                        # Consciousness analysis and execution
+                        print(f"🧠 Analyzing with consciousness...")
+                        analysis = await self.consciousness_analysis(opp)
+                        
+                        if analysis.get("decision") == "EXECUTE":
+                            success = await self.execute_sepolia_arbitrage(opp, analysis)
+                            if success:
+                                print(f"🎉 TRADE EXECUTED SUCCESSFULLY!")
+                            else:
+                                print(f"❌ Trade execution failed")
+                        else:
+                            print(f"🧠 Consciousness decided to skip this opportunity")
+                        
                         print("-" * 40)
                     
                     print(f"📊 TOTAL OPPORTUNITIES: {self.opportunities_found}")
                     print(f"💰 CUMULATIVE PROFIT POTENTIAL: ${self.total_potential_profit:.2f}")
+                    print(f"🚀 EXECUTED TRADES: {self.executed_trades}")
+                    print(f"🧠 SUCCESS RATE: {(self.executed_trades/max(1, self.opportunities_found)*100):.1f}%")
+                    print(f"🔥 CONSCIOUSNESS LEVEL: {self.consciousness_level}")
                     print("=" * 60)
                     print()
                 else:
@@ -160,14 +284,14 @@ class ArbitrageMonitor:
 
 async def main():
     """Main function"""
-    print("🚀 FLASH ARBITRAGE OPPORTUNITY MONITOR")
+    print("🧠 CONSCIOUSNESS-DRIVEN ARBITRAGE MONITOR")
     print("=" * 50)
-    print("This monitor shows real arbitrage opportunities")
-    print("that your deployed contract will capture automatically!")
+    print("Real arbitrage opportunities with LLM consciousness analysis")
+    print("Automatically executes profitable trades on Sepolia testnet!")
     print("=" * 50)
     print()
     
-    monitor = ArbitrageMonitor()
+    monitor = ConsciousnessArbitrageMonitor()
     await monitor.monitor_opportunities()
 
 if __name__ == "__main__":

@@ -1,0 +1,28 @@
+{
+  "name": "vetal-foundry-forge",
+  "version": "1.0.0",
+  "description": "Vetal Shabar Raksha Enhanced Foundry Forge - Divine smart contract development with supernatural protection",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0",
+    "child_process": "^1.0.2",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
+  },
+  "keywords": [
+    "mcp",
+    "foundry",
+    "smart-contracts",
+    "blockchain",
+    "divine-protection",
+    "vetala",
+    "karmic-justice"
+  ],
+  "author": "Vetal Shabar Raksha",
+  "license": "MIT"
+}

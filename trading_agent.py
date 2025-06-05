@@ -23,11 +23,15 @@ from utils.etherscan_integration import EtherscanAnalyzer
 # Fix config import to avoid circular import with config package
 import sys
 import os
+import sys
 root_dir = os.path.dirname(os.path.abspath(__file__))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
-import config as root_config
-Config = root_config.Config
+
+# Import directly from config.py (not the config package)
+sys.path.insert(0, root_dir)
+exec(open(os.path.join(root_dir, 'config.py')).read())
+# Now Config class is available in the global namespace
 
 from config_package.wallet_config import get_wallet_config, USER_WALLET, get_network_config, NetworkType
 
