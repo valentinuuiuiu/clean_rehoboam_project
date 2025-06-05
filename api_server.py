@@ -3,8 +3,10 @@ import asyncio
 import os
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, Header, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, Header, Body, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+from jwt import PyJWTError
 import httpx
 import json
 import jwt
@@ -177,6 +179,25 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user_id: str
+
+# Authentication Utilities
+SECRET_KEY = "your-secret-key-here"  # TODO: Replace with proper secret key
+ALGORITHM = "HS256"
+
+def get_current_user(token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+        return user_id
+    except PyJWTError:
+        raise credentials_exception
 
 # Web3 Provider Endpoints
 @app.post("/api/web3/providers")
