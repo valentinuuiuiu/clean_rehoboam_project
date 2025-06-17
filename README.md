@@ -485,7 +485,7 @@ export const Portfolio = () => {
 2.  **Authentication Implementation:** Authentication endpoints (`/api/auth/login`, `/api/auth/register`) are currently placeholders and require full implementation with secure credential handling and session management.
 3.  **Environment Variables:** Ensure all required API keys and secrets (e.g., `JWT_SECRET`) are correctly configured in `.env`.
 4.  **Wallet Integration:** Frontend error handling for wallet connection failures and chain switching needs to be robust.
-5.  **Flask Application:** The role of the auxiliary Flask application ([`run.py`](run.py:1), `trading_platform/`) needs clarification, as local development now defaults to the FastAPI server. It might be deprecated or its unique functionalities migrated.
+5.  **Flask Application (Deprecated):** The Flask application ([`run.py`](run.py:1), `trading_platform/`) is deprecated. Its functionalities have largely been integrated into the FastAPI application or are no longer maintained. Users and developers should focus on the FastAPI backend (`api_server.py`) as the primary and current application.
 
 ## To-Do
 
@@ -506,5 +506,9 @@ export const Portfolio = () => {
     -   Add support for more wallets (e.g., WalletConnect).
 5.  **Testing**:
     -   Expand unit, integration, and end-to-end test coverage for both frontend and backend.
+
+### Deprecated Features
+
+*   **Flask Application (`run.py`, `trading_platform/` directory):** The Flask-based application previously included in this repository is now considered deprecated. It is not part of the main Dockerized deployment, and its functionalities have either been integrated into the FastAPI application or are no longer actively maintained. The primary backend service is the FastAPI application found in `api_server.py`. All new development and usage should focus on the FastAPI application.
 
 See [`USAGE.md`](USAGE.md:1) for detailed usage instructions.

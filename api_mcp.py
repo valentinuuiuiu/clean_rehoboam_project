@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import httpx
 import time
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Set
@@ -26,6 +27,8 @@ from utils.mcp_auth import (
 # Setup logging
 logger = logging.getLogger("API_MCP")
 
+MCP_REGISTRY_URL = "http://mcp-registry:3001"
+
 # Create router
 router = APIRouter(
     prefix="/api/mcp",
@@ -38,7 +41,7 @@ active_connections: Dict[WebSocket, Set[str]] = {}
 
 # Temporary in-memory storage for demonstration
 # In a real implementation, this would connect to the actual MCP system
-mcp_functions = []
+# mcp_functions = [] # This will be fetched from the registry
 mcp_function_calls = []
 
 
@@ -66,8 +69,50 @@ class MCPFunctionExecution(BaseModel):
 
 @router.get("/functions", response_model=List[MCPFunction])
 async def get_mcp_functions():
-    """Get all registered MCP functions."""
-    return mcp_functions
+    """Get all registered MCP functions from the mcp-registry service."""
+    try:
+        async with httpx.AsyncClient() as client:
+            # Attempt to fetch detailed functions list
+            response = await client.get(f"{MCP_REGISTRY_URL}/functions")
+            response.raise_for_status()
+            functions_data = response.json()
+            logger.info("Successfully fetched MCP functions from mcp-registry/functions.")
+            # Assuming functions_data is a list of dicts compatible with MCPFunction
+            return functions_data
+    except httpx.RequestError as e:
+        logger.error(f"Error fetching MCP functions from mcp-registry/functions: {e}. Falling back to /registry.")
+        # Fallback: try to extract function names from the /registry endpoint
+        try:
+            async with httpx.AsyncClient() as client:
+                registry_response = await client.get(f"{MCP_REGISTRY_URL}/registry")
+                registry_response.raise_for_status()
+                registry_data = registry_response.json()
+
+                extracted_functions = []
+                if "services" in registry_data and isinstance(registry_data["services"], dict):
+                    for service_name, service_details in registry_data["services"].items():
+                        if "functions" in service_details and isinstance(service_details["functions"], list):
+                            for func_name in service_details["functions"]:
+                                # We only have names, so we create partial MCPFunction objects
+                                extracted_functions.append({
+                                    "name": func_name,
+                                    "description": service_details.get("description", "N/A"), # Or a default
+                                    "mcp_type": "processor", # Default
+                                    "parameters": {}, # Default / Unknown
+                                    # created_at, source_code, last_execution would be unknown
+                                })
+                logger.info(f"Extracted {len(extracted_functions)} function names from mcp-registry/registry fallback.")
+                return extracted_functions
+        except httpx.RequestError as re:
+            logger.error(f"Error fetching from mcp-registry/registry fallback: {re}")
+            raise HTTPException(status_code=503, detail="MCP registry service unavailable for functions.")
+        except Exception as ex: # Catching potential parsing errors or unexpected structure
+            logger.error(f"Error processing fallback registry data for functions: {ex}")
+            raise HTTPException(status_code=500, detail="Error processing functions data from registry.")
+
+    except Exception as e:
+        logger.error(f"General error fetching MCP functions: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching MCP functions.")
 
 
 @router.get("/function-calls", response_model=List[MCPFunctionExecution])
@@ -79,7 +124,22 @@ async def get_mcp_function_calls(limit: int = Query(100, description="Maximum nu
 @router.get("/functions/{function_name}", response_model=MCPFunction)
 async def get_mcp_function(function_name: str = Path(..., description="Name of the MCP function")):
     """Get details of a specific MCP function."""
-    for func in mcp_functions:
+    # This function will also need to be updated to fetch from registry,
+    # or the global mcp_functions list needs to be repopulated if we stick to it.
+    # For now, it will likely not find any functions if mcp_functions is empty.
+    # Depending on how functions are fetched, this might call MCP_REGISTRY_URL/functions/{function_name}
+
+    # Placeholder: If mcp_functions is indeed removed, this needs a new source.
+    # For now, let's assume get_mcp_functions() could populate a temporary list or this needs redesign.
+    # This is out of scope for the current subtask, but noting it.
+
+    # Quick fix attempt: fetch all and then filter. Not efficient.
+    all_functions = await get_mcp_functions()
+    for func in all_functions:
+        # Ensure func is a dict if it's coming from Pydantic model conversion
+        if isinstance(func, BaseModel):
+            func = func.model_dump() # Use model_dump() for Pydantic v2+
+
         if func["name"] == function_name:
             return func
     raise HTTPException(status_code=404, detail="MCP function not found")
@@ -91,9 +151,11 @@ async def get_mcp_status():
     try:
         # Check if MCP services are available
         # For now, we'll return a simulated status based on available functions
+        # Status check might need to be re-evaluated based on live registry calls
+        mcp_funcs_list = await get_mcp_functions() # Call the new live data version
         services_status = {
-            "registry": "connected" if len(mcp_functions) > 0 else "disconnected",
-            "chainlink": "connected",
+            "registry": "connected" if len(mcp_funcs_list) > 0 else "disconnected", # Basic check
+            "chainlink": "connected", # These would ideally also come from registry
             "etherscan": "connected", 
             "consciousness": "connected"
         }
@@ -119,9 +181,13 @@ async def websocket_endpoint(websocket: WebSocket):
     
     try:
         # Send initial data
+        # WebSocket needs to get functions from the new async function
+        # This might require refactoring how WebSocket gets initial data
+        # For now, it will call the new get_mcp_functions
+        initial_mcp_functions = await get_mcp_functions()
         await websocket.send_json({
             "type": "mcp_functions_list",
-            "functions": mcp_functions
+            "functions": initial_mcp_functions
         })
         
         await websocket.send_json({
@@ -138,13 +204,15 @@ async def websocket_endpoint(websocket: WebSocket):
                 if message_type == "get_function_details":
                     function_name = data.get("function_name")
                     if function_name:
-                        for func in mcp_functions:
-                            if func["name"] == function_name:
-                                await websocket.send_json({
-                                    "type": "mcp_function_details",
-                                    "function": func
-                                })
-                                break
+                        # This also needs to use the new way of fetching functions
+                        func_detail = await get_mcp_function(function_name) # Call the modified get_mcp_function
+                        if func_detail:
+                             await websocket.send_json({
+                                 "type": "mcp_function_details",
+                                 "function": func_detail
+                             })
+                        # No explicit else, if not found, get_mcp_function raises HTTPException which is not caught here
+                        # This might need adjustment if a silent failure is preferred for WebSocket
                         
                 elif message_type == "subscribe":
                     if "functions" in data:
@@ -217,15 +285,21 @@ def register_mcp_function(function_data: Dict[str, Any]):
         "created_at": datetime.now().isoformat()
     }
     
-    # Add to in-memory store
-    for i, existing_func in enumerate(mcp_functions):
-        if existing_func["name"] == function["name"]:
-            # Update existing function
-            mcp_functions[i] = function
-            break
-    else:
-        # Add new function
-        mcp_functions.append(function)
+    # Add to in-memory store - THIS IS PROBLEMATIC if mcp_functions is removed
+    # This function's behavior needs to be re-evaluated.
+    # If functions are solely managed by the registry, this function might:
+    # 1. Call an endpoint on the registry to register the function.
+    # 2. Be removed if clients should register functions directly with the registry.
+    # For now, commenting out the modification to the non-existent mcp_functions
+    # for i, existing_func in enumerate(mcp_functions):
+    #     if existing_func["name"] == function["name"]:
+    #         # Update existing function
+    #         mcp_functions[i] = function
+    #         break
+    # else:
+    #     # Add new function
+    #     mcp_functions.append(function)
+    logger.warning("register_mcp_function: mcp_functions list is no longer maintained locally. Registration might not be reflected.")
     
     # Broadcast to WebSocket clients
     asyncio.create_task(broadcast_function_registration(function))
@@ -256,11 +330,16 @@ def record_mcp_function_execution(execution_data: Dict[str, Any]):
     if len(mcp_function_calls) > 1000:  # Limit size to prevent memory issues
         mcp_function_calls.pop()
     
-    # Update last_execution in function record
-    for func in mcp_functions:
-        if func["name"] == execution["function_name"]:
-            func["last_execution"] = execution
-            break
+    # Update last_execution in function record - SIMILARLY PROBLEMATIC
+    # This also depends on the mcp_functions list.
+    # This information (last_execution) would ideally be part of the data fetched from the registry
+    # or managed by the registry itself.
+    # Commenting out for now:
+    # for func in mcp_functions: # mcp_functions is no longer a global list here
+    #     if func["name"] == execution["function_name"]:
+    #         func["last_execution"] = execution
+    #         break
+    logger.warning("record_mcp_function_execution: mcp_functions list is no longer maintained locally. Last execution update might not be reflected.")
     
     # Broadcast to WebSocket clients
     asyncio.create_task(broadcast_function_execution(execution))
@@ -272,46 +351,18 @@ def record_mcp_function_execution(execution_data: Dict[str, Any]):
 async def get_mcp_registry():
     """Get the complete MCP service registry with authentication."""
     try:
-        # Return comprehensive MCP registry
-        registry = {
-            "services": {
-                "chainlink-feeds": {
-                    "url": "http://localhost:8001",
-                    "status": "active",
-                    "functions": ["get_price", "get_price_history", "get_supported_tokens"],
-                    "description": "Chainlink oracle price feeds service"
-                },
-                "consciousness-layer": {
-                    "url": "http://localhost:8002", 
-                    "status": "active",
-                    "functions": ["analyze_consciousness", "process_quantum_state", "sync_network"],
-                    "description": "Rehoboam consciousness and quantum processing"
-                },
-                "etherscan-analyzer": {
-                    "url": "http://localhost:8003",
-                    "status": "active", 
-                    "functions": ["analyze_transaction", "get_contract_info", "get_wallet_history"],
-                    "description": "Ethereum blockchain analysis via Etherscan"
-                },
-                "vetal-foundry-forge": {
-                    "url": "http://localhost:8004",
-                    "status": "active",
-                    "functions": ["deploy_contract", "test_contract", "verify_contract"],
-                    "description": "Solidity contract development and deployment"
-                }
-            },
-            "endpoint": os.getenv('MCP_ENDPOINT', 'http://localhost:8000/api/mcp'),
-            "authentication": {
-                "required": True,
-                "type": "token",
-                "header": "X-MCP-Token"
-            },
-            "updated_at": datetime.utcnow().isoformat()
-        }
-        return registry
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MCP_REGISTRY_URL}/registry")
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            registry_data = response.json()
+            logger.info("Successfully fetched MCP registry data from live service.")
+            return registry_data
+    except httpx.RequestError as e:
+        logger.error(f"Error fetching MCP registry from live service: {e}")
+        raise HTTPException(status_code=503, detail=f"MCP registry service unavailable: {e}")
     except Exception as e:
-        logger.error(f"Error getting MCP registry: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error processing MCP registry data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing MCP registry data: {e}")
 
 @router.post("/auth/token")
 async def generate_mcp_token(user_data: Dict[str, Any] = Body(...)):

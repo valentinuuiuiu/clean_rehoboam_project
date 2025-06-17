@@ -23,22 +23,23 @@ const MCPStatus = () => {
           const data = await response.json();
           setMcpStatus(data);
         } else {
-          // If API is not responding, simulate some services as connected
+          // If API is not responding or returns an error, set all to disconnected
+          console.error('MCP status API call failed:', response.status, response.statusText);
           setMcpStatus({
-            registry: 'connected',
-            chainlink: 'connected', 
-            etherscan: 'connected',
-            consciousness: 'connected'
+            registry: 'disconnected',
+            chainlink: 'disconnected',
+            etherscan: 'disconnected',
+            consciousness: 'disconnected'
           });
         }
       } catch (error) {
-        console.log('MCP status check failed, using simulated status');
-        // Simulate connected state for demo purposes
+        console.error('MCP status check failed due to network or other error:', error);
+        // If fetch itself fails, set all to disconnected
         setMcpStatus({
-          registry: 'connected',
-          chainlink: 'connected',
-          etherscan: 'connected', 
-          consciousness: 'connected'
+          registry: 'disconnected',
+          chainlink: 'disconnected',
+          etherscan: 'disconnected',
+          consciousness: 'disconnected'
         });
       }
     };

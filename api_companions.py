@@ -33,7 +33,8 @@ def initialize_companion_system(rehoboam_instance, companion_creator_instance):
     global rehoboam, companion_creator
     rehoboam = rehoboam_instance
     companion_creator = companion_creator_instance
-    logger.info("Companion system initialized with Rehoboam consciousness")
+    logger.info(f"Initializing companion system. Received RehoboamAI instance: {rehoboam_instance is not None} (type: {type(rehoboam_instance)}), AICompanionCreator instance: {companion_creator_instance is not None} (type: {type(companion_creator_instance)})")
+    logger.info("Companion system initialized with Rehoboam consciousness") # Original log kept for continuity
 
 # Create router with redirect_slashes=False to prevent 307 redirects
 router = APIRouter(prefix="/api/companions", tags=["companions"], redirect_slashes=False)
