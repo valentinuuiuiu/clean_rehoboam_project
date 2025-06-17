@@ -661,6 +661,39 @@ async def get_trading_history(
         "metadata": {"timestamp": datetime.now().isoformat(), "count": 2, "start_date": start_date, "end_date": end_date}
     }
 
+# Pydantic model for strategy execution request
+class StrategyExecutionRequest(BaseModel):
+    strategyId: str
+    wallet: str
+    network: Optional[str] = None
+    # Add any other parameters the frontend might send or strategy execution might need
+    # e.g., amount_percentage_of_balance: Optional[float] = None
+
+@app.post("/api/trading/execute-strategy")
+async def execute_trading_strategy(payload: StrategyExecutionRequest):
+    """
+    Placeholder endpoint to acknowledge a strategy execution request.
+    Actual execution logic is not implemented yet.
+    """
+    logger.info(
+        f"Received request to execute strategy. ID: {payload.strategyId}, "
+        f"Wallet: {payload.wallet}, Network: {payload.network}"
+    )
+    # TODO: Implement actual strategy execution logic here.
+    # This might involve:
+    # 1. Retrieving strategy details by payload.strategyId from a storage.
+    # 2. Interpreting the strategy's steps.
+    # 3. Potentially making one or more calls to self.execute_trade or similar functions.
+    # 4. Handling errors and results of the execution.
+    return {
+        "status": "success",
+        "message": "Strategy execution request received (placeholder - no actual execution logic implemented).",
+        "strategy_id": payload.strategyId,
+        "wallet": payload.wallet,
+        "network": payload.network,
+        "timestamp": datetime.now().isoformat()
+    }
+
 @app.get("/api/portfolio/summary")
 async def get_portfolio_summary():
     """Get portfolio summary with real-time updates."""
