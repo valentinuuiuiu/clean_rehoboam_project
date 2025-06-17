@@ -39,22 +39,56 @@ const MCPFunctionVisualizer = () => {
     console.log('MCP WebSocket message received:', data);
     
     if (data.type === 'mcp_function_registered') {
-      // Add new function to the list
-      setMcpFunctions(prev => [...prev, data.function]);
+      // Add or update function in the list
+      setMcpFunctions(prevFuncs => {
+        const existingIndex = prevFuncs.findIndex(f => f.name === data.function.name);
+        if (existingIndex !== -1) {
+          const updatedFuncs = [...prevFuncs];
+          updatedFuncs[existingIndex] = { ...updatedFuncs[existingIndex], ...data.function };
+          return updatedFuncs;
+        }
+        return [...prevFuncs, data.function];
+      });
     } 
     else if (data.type === 'mcp_function_executed') {
+      const execution = data.execution;
       // Add new function call to the list
-      setFunctionCalls(prev => [data.execution, ...prev].slice(0, 100)); // Keep last 100 calls
+      setFunctionCalls(prev => [execution, ...prev].slice(0, 100)); // Keep last 100 calls
+      // Update the last_execution for the specific function in the mcpFunctions list
+      setMcpFunctions(prevFuncs =>
+        prevFuncs.map(f =>
+          f.name === execution.function_name
+            ? { ...f, last_execution: execution }
+            : f
+        )
+      );
+      // If this executed function is currently selected, update its details too
+      if (selectedFunction && selectedFunction.name === execution.function_name) {
+        setSelectedFunction(prevSelected => ({ ...prevSelected, last_execution: execution }));
+      }
     }
     else if (data.type === 'mcp_functions_list') {
       // Set the full list of functions
-      setMcpFunctions(data.functions);
+      setMcpFunctions(data.functions || []); // Ensure it's an array
       setIsLoading(false);
     }
     else if (data.type === 'mcp_function_calls_list') {
       // Set the list of recent function calls
-      setFunctionCalls(data.calls);
+      setFunctionCalls(data.calls || []); // Ensure it's an array
       setIsLoading(false);
+    }
+    else if (data.type === 'mcp_function_details') {
+      const detailedFunc = data.function;
+      if (detailedFunc) {
+        // Update the function in the main list
+        setMcpFunctions(prevFuncs =>
+          prevFuncs.map(f => f.name === detailedFunc.name ? { ...f, ...detailedFunc } : f)
+        );
+        // If this function is currently selected, update the selectedFunction state
+        if (selectedFunction && selectedFunction.name === detailedFunc.name) {
+          setSelectedFunction(prevSelected => ({...prevSelected, ...detailedFunc}));
+        }
+      }
     }
   }
   

@@ -8,45 +8,7 @@ import { useWeb3 } from './contexts/Web3Context';
 import { useNotification } from './contexts/NotificationContext';
 import tradingService from './services/tradingService';
 
-// Rehoboam AI automation class
-class RehoboamAI {
-  constructor(uiControls) {
-    this.ui = uiControls;
-    this.isActive = false;
-    this.interval = null;
-  }
-  
-  activate() {
-    this.isActive = true;
-    this.interval = setInterval(() => this.autoTrade(), 30000); // Every 30 seconds
-    console.log('🤖 Rehoboam AI activated');
-  }
-  
-  deactivate() {
-    this.isActive = false;
-    if (this.interval) clearInterval(this.interval);
-    console.log('🤖 Rehoboam AI deactivated');
-  }
-  
-  async autoTrade() {
-    if (!this.isActive) return;
-    
-    try {
-      // Simulate AI decision making
-      const marketData = await tradingService.getMarketSentiment();
-      const prices = await tradingService.getPrices();
-      
-      // AI logic: if sentiment > 70, buy small amount, if < 30, sell
-      if (marketData?.sentiment > 70) {
-        this.ui.executeAutoTrade('buy', 0.001);
-      } else if (marketData?.sentiment < 30) {
-        this.ui.executeAutoTrade('sell', 0.001);
-      }
-    } catch (error) {
-      console.log('🤖 Rehoboam waiting for market data...');
-    }
-  }
-}
+// Removed RehoboamAI class definition
 
 function App() {
   const [activeTab, setActiveTab] = useState('trading');
@@ -59,8 +21,8 @@ function App() {
   const [strategies, setStrategies] = useState([]);
   const [marketAnalysis, setMarketAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [rehoboamActive, setRehoboamActive] = useState(false);
-  const [rehoboamAI, setRehoboamAI] = useState(null);
+  // const [rehoboamActive, setRehoboamActive] = useState(false); // Removed
+  // const [rehoboamAI, setRehoboamAI] = useState(null); // Removed
   const [liveData, setLiveData] = useState({
     prices: { BTC: 59423.50, ETH: 3452.18, LINK: 14.85 },
     lastUpdate: new Date()
@@ -75,20 +37,13 @@ function App() {
     loadMarketAnalysis();
     loadLivePrices();
     
-    // Initialize Rehoboam AI
-    const ai = new RehoboamAI({
-      executeAutoTrade: (action, amount) => {
-        setTradingForm(prev => ({ ...prev, amount: amount.toString() }));
-        setTimeout(() => handleTradeExecution(action), 1000);
-      }
-    });
-    setRehoboamAI(ai);
+    // Removed Rehoboam AI initialization
     
     // Set up live price updates
     const priceInterval = setInterval(loadLivePrices, 10000); // Every 10 seconds
     
     return () => {
-      if (ai) ai.deactivate();
+      // if (ai) ai.deactivate(); // Removed Rehoboam AI deactivation
       clearInterval(priceInterval);
     };
   }, []);
@@ -192,18 +147,7 @@ function App() {
     setTradingForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleRehoboam = () => {
-    if (rehoboamAI) {
-      if (rehoboamActive) {
-        rehoboamAI.deactivate();
-        addNotification('info', '🤖 Rehoboam AI deactivated');
-      } else {
-        rehoboamAI.activate();
-        addNotification('success', '🤖 Rehoboam AI activated - will trade based on market sentiment');
-      }
-      setRehoboamActive(!rehoboamActive);
-    }
-  };
+  // Removed toggleRehoboam function
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -318,25 +262,11 @@ function App() {
                     <div className="import-component">
                       {/* This will be replaced by the AutomatedTrading component */}
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <label className="font-medium">Rehoboam AI</label>
-                          <div className="relative inline-block w-10 align-middle select-none">
-                            <input 
-                              type="checkbox" 
-                              name="rehoboam-toggle" 
-                              id="rehoboam-toggle" 
-                              className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" 
-                              checked={rehoboamActive}
-                              onChange={toggleRehoboam}
-                            />
-                            <label htmlFor="rehoboam-toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
-                          </div>
-                          <span className="text-sm text-gray-400">
-                            {rehoboamActive ? '🤖 Active' : '⏸️ Inactive'}
-                          </span>
-                        </div>
+                        {/* Rehoboam AI Toggle UI Removed */}
                         
                         <div className="bg-gray-700 p-4 rounded-lg">
+                          {/* Manual trade controls remain */}
+                          <p className="text-sm text-gray-400 mb-3">Manual Trade Controls:</p>
                           <div className="mb-3">
                             <label className="block text-sm font-medium text-gray-400 mb-1">Token</label>
                             <select 

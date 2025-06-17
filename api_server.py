@@ -24,6 +24,14 @@ from utils import (
     WebDataFetcher,
     arbitrage_service
 )
+from utils.mcp_clients import ( # Updated import for all new clients
+    get_mcp_consciousness_state,
+    get_mcp_market_emotions,
+    get_mcp_market_analysis,
+    get_mcp_reasoning,
+    get_mcp_specialist_strategy,
+    get_mcp_portfolio_optimization
+)
 
 # Consolidated routers and services
 from api_routers import companions_router, mcp_router
@@ -86,6 +94,12 @@ try:
         logger.warning("OPENAI_API_KEY not found, initializing with limited AI capabilities")
         rehoboam = RehoboamAI()
     
+    logger.info(f"RehoboamAI initialized with provider: {getattr(rehoboam, 'provider', 'default')} and model: {getattr(rehoboam, 'model', 'default')}")
+    # TODO: For deeper MCP integration, RehoboamAI's internal capabilities
+    # (e.g., sentiment analysis, trade execution logic) could be refactored
+    # to act as clients to specialized MCP services (e.g., mcp-reasoning, mcp-data-analysis)
+    # rather than containing all logic locally. This would enhance modularity and scalability.
+
     # Initialize advanced reasoning orchestrator with multi-model capabilities
     reasoning_orchestrator = MultimodalOrchestrator()
     logger.info("Advanced reasoning orchestrator initialized")
@@ -99,6 +113,9 @@ try:
     logger.info("AI companion creator initialized")
     
     # Initialize enhanced MCP specialist
+    # For true MCP compliance, EnhancedMCPSpecialist would ideally perform its own
+    # registry lookups and direct calls to target MCP function services.
+    # Currently, it acts as a local simulation or direct interface to pre-configured functions.
     mcp_specialist = EnhancedMCPSpecialist(rehoboam)
     logger.info("Enhanced MCP specialist initialized")
     
@@ -735,17 +752,39 @@ async def get_market_orderbook(token: str, depth: int = Query(20, gt=0, le=100))
 
 @app.get("/api/ai/emotions")
 async def get_market_emotions():
-    """Get market emotional state from Rehoboam."""
+    """Get market emotional state from the MCP Consciousness Layer service."""
     try:
-        emotions = await rehoboam.get_market_emotions()
+        logger.info("Fetching market emotions from MCP Consciousness Layer.")
+        mcp_emotions_data = await get_mcp_market_emotions()
+
+        if mcp_emotions_data is None:
+            logger.error("Failed to retrieve market emotions from MCP service.")
+            raise HTTPException(status_code=503, detail="MCP Consciousness Layer service (emotions) unavailable or returned an error.")
+
+        # Broadcast emotion update using data from MCP
+        if ws_server and hasattr(ws_server, 'broadcast_emotion_update'):
+            try:
+                # Assuming broadcast_emotion_update expects a certain structure,
+                # pass the raw mcp_emotions_data or adapt it as needed.
+                await ws_server.broadcast_emotion_update(mcp_emotions_data)
+                logger.info("Successfully broadcasted MCP market emotions.")
+            except Exception as e_broadcast:
+                logger.error(f"Error broadcasting MCP market emotions: {e_broadcast}")
+
+        response_data = {
+            "timestamp": datetime.now().isoformat(),
+            "source": "mcp_consciousness_layer",
+            "data": mcp_emotions_data
+        }
         
-        # Broadcast emotion update
-        await ws_server.broadcast_emotion_update(emotions)
+        logger.info("Successfully retrieved and formatted market emotions from MCP service.")
+        return response_data
         
-        return emotions
+    except HTTPException: # Re-raise HTTPExceptions directly
+        raise
     except Exception as e:
-        logger.error(f"Error getting market emotions: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in /api/ai/emotions endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 @app.get("/health")
 async def health_check():
@@ -801,122 +840,200 @@ async def root():
 @app.get("/api/trading/strategies")
 async def get_trading_strategies(token: str = Query("ETH", title="Token Symbol"), 
                                risk_profile: str = Query("moderate", title="Risk Profile")):
-    """Get AI-generated trading strategies using Rehoboam's consciousness layers."""
-    try:
-        # Use real consciousness layers for strategy generation
-        strategies = []
-        
-        if market_analyzer:
-            # Get comprehensive market analysis using DeepSeek AI
-            logger.info(f"Analyzing {token} with Rehoboam's market intelligence")
-            analysis = await market_analyzer.analyze_token(token)
-            
-            if reasoning_orchestrator:
-                # Use advanced reasoning to enhance the strategy
-                reasoning_prompt = f"""
-                As Rehoboam, analyze this market data for {token} and generate advanced trading strategies.
-                
-                Market Analysis: {json.dumps(analysis, indent=2)}
-                Risk Profile: {risk_profile}
-                
-                Generate sophisticated trading strategies that leverage Layer 2 networks and consider:
-                1. Cross-chain arbitrage opportunities
-                2. Gas optimization across networks
-                3. Market sentiment and technical indicators
-                4. Portfolio risk management
-                5. Multi-dimensional consciousness layers
-                
-                Format as JSON with strategy objects containing: id, name, description, confidence, 
-                risk_level, expected_return, timeframe, networks, reasoning, action_steps
-                """
-                
+    """Get AI-generated trading strategies, prioritizing MCP services with local fallbacks."""
+    strategies = []
+    mcp_services_status = {
+        "market_analyzer": "unavailable",
+        "reasoning_orchestrator": "unavailable",
+        "strategy_specialist": "unavailable",
+        "portfolio_optimizer": "unavailable"
+    }
+
+    analysis_data = None
+    reasoning_content = None
+
+    # 1. Try MCP Market Analysis
+    logger.info(f"Attempting to fetch market analysis for {token} from MCP.")
+    mcp_analysis = await get_mcp_market_analysis(token)
+    if mcp_analysis:
+        logger.info(f"Successfully fetched market analysis for {token} from MCP.")
+        mcp_services_status["market_analyzer"] = "connected"
+        analysis_data = mcp_analysis
+    else:
+        logger.warning(f"MCP Market Analyzer unavailable for {token}. Falling back to local.")
+        if market_analyzer: # Local fallback
+            try:
+                analysis_data = await market_analyzer.analyze_token(token)
+                logger.info(f"Successfully used local market_analyzer for {token}.")
+            except Exception as e:
+                logger.error(f"Local market_analyzer failed for {token}: {e}")
+        else:
+            logger.error("Local market_analyzer not available.")
+
+    # 2. Try MCP Reasoning, using analysis_data (either from MCP or local)
+    if analysis_data:
+        logger.info(f"Attempting to get reasoning for {token} from MCP.")
+        reasoning_prompt = f"""
+        As an advanced AI, analyze this market data for {token} and generate sophisticated trading strategies.
+        Market Analysis: {json.dumps(analysis_data, indent=2)}
+        Risk Profile: {risk_profile}
+        Consider: Layer 2 networks, cross-chain arbitrage, gas optimization, sentiment, technical indicators, portfolio risk.
+        Format as JSON with strategy objects: id, name, description, confidence, risk_level, expected_return, timeframe, networks, reasoning, action_steps.
+        """
+        mcp_reasoning_result = await get_mcp_reasoning(prompt=reasoning_prompt, task_type="strategy_generation", complexity=5)
+        if mcp_reasoning_result:
+            logger.info(f"Successfully received reasoning for {token} from MCP.")
+            mcp_services_status["reasoning_orchestrator"] = "connected"
+            reasoning_content = mcp_reasoning_result.get("content") # Assuming 'content' key holds the strategies
+            if reasoning_content:
                 try:
-                    reasoning_response = await reasoning_orchestrator.process_request(reasoning_prompt)
-                    if reasoning_response and reasoning_response.success:
-                        # Parse the AI-generated strategies
+                    # Attempt to parse strategies if reasoning_content is a JSON string
+                    if isinstance(reasoning_content, str):
+                        parsed_strategies = json.loads(reasoning_content)
+                    elif isinstance(reasoning_content, dict): # If it's already a dict
+                        parsed_strategies = reasoning_content
+                    else: # list
+                        parsed_strategies = {"strategies": reasoning_content}
+
+
+                    if isinstance(parsed_strategies, dict) and 'strategies' in parsed_strategies:
+                        strategies.extend(parsed_strategies['strategies'])
+                        logger.info(f"Parsed {len(parsed_strategies['strategies'])} strategies from MCP Reasoning.")
+                    elif isinstance(parsed_strategies, list): # If the content is directly a list of strategies
+                        strategies.extend(parsed_strategies)
+                        logger.info(f"Parsed {len(parsed_strategies)} strategies directly from MCP Reasoning list.")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse strategies from MCP Reasoning content: {e}. Content: {reasoning_content}")
+                except Exception as e:
+                    logger.error(f"Unexpected error parsing MCP Reasoning strategies: {e}")
+        else: # Fallback to local reasoning_orchestrator
+            logger.warning(f"MCP Reasoning Orchestrator unavailable for {token}. Falling back to local.")
+            if reasoning_orchestrator:
+                try:
+                    local_reasoning_response = await reasoning_orchestrator.process_request(reasoning_prompt)
+                    if local_reasoning_response and local_reasoning_response.success:
+                        logger.info(f"Successfully used local reasoning_orchestrator for {token}.")
+                        # Similar parsing logic for local response
                         import re
-                        json_match = re.search(r'\{.*\}', reasoning_response.content, re.DOTALL)
+                        json_match = re.search(r'\{.*\}', local_reasoning_response.content, re.DOTALL)
                         if json_match:
                             ai_strategies = json.loads(json_match.group())
                             if isinstance(ai_strategies, dict) and 'strategies' in ai_strategies:
                                 strategies.extend(ai_strategies['strategies'])
                             elif isinstance(ai_strategies, list):
                                 strategies.extend(ai_strategies)
+                    else:
+                        logger.error(f"Local reasoning_orchestrator did not return a successful response for {token}.")
                 except Exception as e:
-                    logger.warning(f"Error processing AI reasoning: {e}")
-            
-            # Add MCP-generated strategy if available
-            if mcp_specialist:
-                try:
-                    mcp_strategy = await mcp_specialist.generate_trading_strategy(token, analysis, risk_profile)
-                    if mcp_strategy:
-                        strategies.append(mcp_strategy)
-                except Exception as e:
-                    logger.warning(f"Error generating MCP strategy: {e}")
-                    
-            # Generate portfolio optimization strategy if available
-            if portfolio_optimizer:
-                try:
-                    optimization_strategy = portfolio_optimizer.generate_rebalancing_strategy(
-                        current_token=token,
-                        risk_profile=risk_profile,
-                        market_conditions=analysis
-                    )
-                    if optimization_strategy:
-                        strategies.append(optimization_strategy)
-                except Exception as e:
-                    logger.warning(f"Error generating portfolio optimization strategy: {e}")
-        
-        # Fallback to basic strategy if no consciousness layers available
-        if not strategies:
-            logger.warning("Using fallback strategy generation")
-            from trading_agent import TradingAgent
-            agent = TradingAgent()
-            
-            if hasattr(agent, 'generate_trading_strategies'):
-                strategies = agent.generate_trading_strategies(token, risk_profile)
+                    logger.error(f"Local reasoning_orchestrator failed for {token}: {e}")
             else:
-                analysis = agent.analyze_market_with_rehoboam(token)
-                
-                strategy = {
+                logger.error("Local reasoning_orchestrator not available.")
+    else:
+        logger.warning(f"Skipping Reasoning step as no analysis_data available for {token}.")
+
+    # Ensure analysis_data is not None for subsequent calls, even if it's an empty dict
+    if analysis_data is None:
+        analysis_data = {}
+        logger.warning(f"No analysis data available for {token} for specialist/optimizer. Using empty dict.")
+
+    # 3. Try MCP Strategy Specialist
+    logger.info(f"Attempting to get specialist strategy for {token} from MCP.")
+    mcp_spec_strategy = await get_mcp_specialist_strategy(token, analysis_data, risk_profile)
+    if mcp_spec_strategy:
+        logger.info(f"Successfully received specialist strategy for {token} from MCP.")
+        mcp_services_status["strategy_specialist"] = "connected"
+        strategies.append(mcp_spec_strategy)
+    else: # Fallback to local mcp_specialist
+        logger.warning(f"MCP Strategy Specialist unavailable for {token}. Falling back to local.")
+        if mcp_specialist: # Local fallback
+            try:
+                local_spec_strategy = await mcp_specialist.generate_trading_strategy(token, analysis_data, risk_profile)
+                if local_spec_strategy:
+                    strategies.append(local_spec_strategy)
+                    logger.info(f"Successfully used local mcp_specialist for {token}.")
+            except Exception as e:
+                logger.error(f"Local mcp_specialist failed for {token}: {e}")
+        else:
+            logger.error("Local mcp_specialist not available.")
+
+    # 4. Try MCP Portfolio Optimizer
+    logger.info(f"Attempting to get portfolio optimization for {token} from MCP.")
+    mcp_port_opt = await get_mcp_portfolio_optimization(token, risk_profile, analysis_data)
+    if mcp_port_opt:
+        logger.info(f"Successfully received portfolio optimization for {token} from MCP.")
+        mcp_services_status["portfolio_optimizer"] = "connected"
+        strategies.append(mcp_port_opt)
+    else: # Fallback to local portfolio_optimizer
+        logger.warning(f"MCP Portfolio Optimizer unavailable for {token}. Falling back to local.")
+        if portfolio_optimizer: # Local fallback
+            try:
+                local_port_opt = portfolio_optimizer.generate_rebalancing_strategy(
+                    current_token=token,
+                    risk_profile=risk_profile,
+                    market_conditions=analysis_data
+                )
+                if local_port_opt:
+                    strategies.append(local_port_opt)
+                    logger.info(f"Successfully used local portfolio_optimizer for {token}.")
+            except Exception as e:
+                logger.error(f"Local portfolio_optimizer failed for {token}: {e}")
+        else:
+            logger.error("Local portfolio_optimizer not available.")
+            
+    # 5. Final Fallback if no strategies were generated
+    if not strategies:
+        logger.warning(f"No strategies generated from MCP or advanced local AI for {token}. Using basic fallback.")
+        from trading_agent import TradingAgent # Ensure this import is valid
+        agent = TradingAgent()
+        try:
+            if hasattr(agent, 'generate_trading_strategies'):
+                basic_strategies = agent.generate_trading_strategies(token, risk_profile)
+            else: # Even more basic fallback based on original structure
+                basic_analysis = agent.analyze_market_with_rehoboam(token) # Assumes this method exists
+                basic_strategies = [{
                     'id': f"{token.lower()}-fallback-strategy-1",
-                    'name': f"{token} Basic Strategy",
-                    'description': f"Basic strategy for {token} (consciousness layers unavailable)",
+                    'name': f"{token} Basic Fallback Strategy",
+                    'description': f"Basic fallback strategy for {token} (all primary sources unavailable)",
                     'token': token,
-                    'recommendation': analysis.get('recommendation', 'hold'),
-                    'confidence': analysis.get('confidence', 0.5),
+                    'recommendation': basic_analysis.get('recommendation', 'hold'),
+                    'confidence': basic_analysis.get('confidence', 0.5),
                     'risk_level': risk_profile,
-                    'expected_return': 0.05 if analysis.get('recommendation') == 'buy' else 0.02,
+                    'expected_return': 0.05 if basic_analysis.get('recommendation') == 'buy' else 0.02,
                     'timeframe': '24h',
-                    'reasoning': 'Basic analysis - advanced consciousness layers offline',
+                    'reasoning': 'Basic analysis - all advanced/MCP sources offline',
                     'networks': ['ethereum', 'arbitrum'],
                     'timestamp': datetime.now().isoformat()
-                }
-                strategies = [strategy]
-        
-        # Add metadata about consciousness state
-        response = {
-            'strategies': strategies,
-            'consciousness_state': {
-                'rehoboam_active': rehoboam is not None,
-                'reasoning_active': reasoning_orchestrator is not None,
-                'market_analyzer_active': market_analyzer is not None,
-                'mcp_specialist_active': mcp_specialist is not None,
-                'portfolio_optimizer_active': portfolio_optimizer is not None
-            },
-            'analysis_timestamp': datetime.now().isoformat(),
-            'token': token,
-            'risk_profile': risk_profile
-        }
-        
-        # Broadcast strategy update via WebSocket
+                }]
+            strategies.extend(basic_strategies)
+            logger.info(f"Generated {len(basic_strategies)} basic fallback strategies for {token}.")
+        except Exception as e:
+            logger.error(f"Error in basic fallback strategy generation for {token}: {e}")
+            # If even basic fallback fails, strategies list might remain empty.
+
+    response = {
+        'strategies': strategies,
+        'mcp_services_status': mcp_services_status,
+        'analysis_timestamp': datetime.now().isoformat(),
+        'token': token,
+        'risk_profile': risk_profile
+    }
+
+    try:
         await ws_server.broadcast_strategy_update(response)
+        logger.info(f"Successfully broadcasted strategy update for {token}.")
+    except Exception as e_broadcast:
+        logger.error(f"Error broadcasting strategy update for {token}: {e_broadcast}")
         
-        return response
+    return response
         
-    except Exception as e:
-        logger.error(f"Error generating trading strategies: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # General exception for the whole endpoint
+    # try/except block for the whole function body should be here
+    # but the prompt implies individual error handling for MCP calls and then local fallbacks.
+    # Adding a general try-except for the whole function:
+    # except Exception as e:
+    #     logger.error(f"Critical error in get_trading_strategies for {token}: {str(e)}")
+    #     raise HTTPException(status_code=500, detail=f"Critical error generating strategies: {str(e)}")
+
 
 # Layer 2 specific endpoints
 @app.get("/api/networks")
@@ -1972,114 +2089,224 @@ async def conscious_arbitrage_websocket(websocket: WebSocket):
 # Enhanced AI Consciousness Endpoints
 @app.get("/api/ai/consciousness-state")
 async def get_consciousness_state():
-    """Get the current state of Rehoboam's consciousness layers."""
+    """Get the current state from the MCP Consciousness Layer service."""
     try:
-        consciousness_matrix = None
+        logger.info("Fetching consciousness state from MCP Consciousness Layer.")
+        mcp_state_data = await get_mcp_consciousness_state()
+
+        if mcp_state_data is None:
+            logger.error("Failed to retrieve consciousness state from MCP service.")
+            raise HTTPException(status_code=503, detail="MCP Consciousness Layer service unavailable or returned an error.")
+
+        # Determine local consciousness matrix (as a fallback or supplementary info)
+        local_consciousness_matrix = None
         if rehoboam and hasattr(rehoboam, 'consciousness'):
-            consciousness_matrix = rehoboam.consciousness.tolist() if hasattr(rehoboam.consciousness, 'tolist') else rehoboam.consciousness
-        
-        state = {
+            local_consciousness_matrix = rehoboam.consciousness.tolist() if hasattr(rehoboam.consciousness, 'tolist') else rehoboam.consciousness
+
+        response_data = {
             "timestamp": datetime.now().isoformat(),
-            "consciousness_matrix": consciousness_matrix,
-            "active_modules": {
-                "rehoboam_core": rehoboam is not None,
-                "advanced_reasoning": reasoning_orchestrator is not None,
-                "market_analyzer": market_analyzer is not None,
-                "companion_creator": companion_creator is not None,
-                "mcp_specialist": mcp_specialist is not None,
-                "portfolio_optimizer": portfolio_optimizer is not None
-            },
-            "cognitive_capabilities": {
-                "sentiment_analysis": rehoboam is not None,
-                "strategy_generation": mcp_specialist is not None,
-                "multi_model_reasoning": reasoning_orchestrator is not None,
-                "companion_creation": companion_creator is not None,
-                "portfolio_optimization": portfolio_optimizer is not None,
-                "cross_chain_analysis": market_analyzer is not None
-            },
-            "consciousness_dimensions": [
-                "analysis", "adaptation", "learning", "risk_assessment", "optimality"
-            ] if consciousness_matrix else []
+            "source": "mcp_consciousness_layer",
+            "mcp_data": mcp_state_data, # Data from the MCP service
+            "local_rehoboam_info": { # Supplementary info about local AI modules
+                "consciousness_matrix_available": local_consciousness_matrix is not None,
+                 "active_modules": {
+                    "rehoboam_core": rehoboam is not None,
+                    "advanced_reasoning": reasoning_orchestrator is not None,
+                    "market_analyzer": market_analyzer is not None,
+                    "companion_creator": companion_creator is not None,
+                    "mcp_specialist": mcp_specialist is not None,
+                    "portfolio_optimizer": portfolio_optimizer is not None
+                },
+                "cognitive_capabilities": {
+                    "sentiment_analysis": rehoboam is not None,
+                    "strategy_generation": mcp_specialist is not None,
+                    "multi_model_reasoning": reasoning_orchestrator is not None,
+                    "companion_creation": companion_creator is not None,
+                    "portfolio_optimization": portfolio_optimizer is not None,
+                    "cross_chain_analysis": market_analyzer is not None
+                }
+            }
         }
         
-        return state
+        # If mcp_state_data has a specific structure, you might want to merge it more directly
+        # For example, if mcp_state_data *is* the consciousness_matrix:
+        # response_data["consciousness_matrix"] = mcp_state_data.get("consciousness_matrix")
+        # response_data["consciousness_dimensions"] = mcp_state_data.get("dimensions")
+
+        logger.info("Successfully retrieved and formatted consciousness state from MCP service.")
+        return response_data
         
+    except HTTPException: # Re-raise HTTPExceptions directly
+        raise
     except Exception as e:
-        logger.error(f"Error getting consciousness state: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in /api/ai/consciousness-state endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 @app.post("/api/ai/reason")
 async def advanced_reasoning(prompt: str, task_type: str = "general", complexity: int = 5):
-    """Use Rehoboam's advanced multi-model reasoning capabilities."""
+    """Use Rehoboam's advanced multi-model reasoning capabilities, prioritizing MCP."""
     try:
-        if not reasoning_orchestrator:
-            raise HTTPException(status_code=503, detail="Advanced reasoning module not available")
-        
-        # Create a model request
-        from utils.advanced_reasoning import ModelRequest
-        request = ModelRequest(
-            prompt=prompt,
-            task_type=task_type,
-            complexity=complexity
-        )
-        
-        # Process the request through the orchestrator
-        response = await reasoning_orchestrator.process_request(request)
-        
-        return {
-            "request_id": request.id,
-            "response": response.to_dict() if response else None,
-            "timestamp": datetime.now().isoformat(),
-            "task_type": task_type,
-            "complexity": complexity
-        }
-        
+        logger.info(f"Attempting to get reasoning from MCP for task: {task_type}")
+        mcp_reasoning_response = await get_mcp_reasoning(prompt, task_type, complexity)
+
+        if mcp_reasoning_response:
+            logger.info("Successfully received reasoning response from MCP.")
+            # Assuming mcp_reasoning_response is the actual data payload from the service
+            return {
+                "source": "mcp_reasoning_orchestrator",
+                "mcp_response_data": mcp_reasoning_response,
+                "timestamp": datetime.now().isoformat(),
+                "task_type": task_type,
+                "complexity": complexity
+                # If MCP provides a request_id, it could be mcp_reasoning_response.get("request_id")
+            }
+        else:
+            logger.warning("MCP Reasoning Orchestrator unavailable or failed. Falling back to local reasoning.")
+            if not reasoning_orchestrator:
+                logger.error("Local reasoning_orchestrator is not available for fallback.")
+                raise HTTPException(status_code=503, detail="Reasoning services (MCP and local) unavailable.")
+
+            # Local fallback logic
+            from utils.advanced_reasoning import ModelRequest # Keep local model for fallback
+            local_request = ModelRequest(
+                prompt=prompt,
+                task_type=task_type,
+                complexity=complexity
+            )
+
+            logger.info("Processing reasoning request with local orchestrator.")
+            local_response_obj = await reasoning_orchestrator.process_request(local_request)
+
+            return {
+                "source": "local_reasoning_orchestrator",
+                "request_id": local_request.id, # ID from local ModelRequest
+                "response": local_response_obj.to_dict() if local_response_obj else None,
+                "timestamp": datetime.now().isoformat(),
+                "task_type": task_type,
+                "complexity": complexity
+            }
+
+    except HTTPException: # Re-raise HTTPExceptions directly if needed
+        raise
     except Exception as e:
-        logger.error(f"Error in advanced reasoning: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in advanced_reasoning endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An internal error occurred during reasoning: {str(e)}")
 
 @app.get("/api/ai/market-intelligence/{token}")
 async def get_market_intelligence(token: str):
-    """Get comprehensive market intelligence using Rehoboam's consciousness."""
+    """Get comprehensive market intelligence, prioritizing MCP services."""
+    intelligence_data = None
+    consciousness_sentiment_data = None
+    sources = {
+        "market_analysis": "unavailable",
+        "consciousness_sentiment": "unavailable"
+    }
+
     try:
-        if not market_analyzer:
-            raise HTTPException(status_code=503, detail="Market analyzer module not available")
+        # 1. Fetch Market Analysis
+        logger.info(f"Attempting to fetch market analysis for {token} from MCP.")
+        mcp_intel = await get_mcp_market_analysis(token)
+        if mcp_intel:
+            intelligence_data = mcp_intel
+            sources["market_analysis"] = "mcp_market_analyzer"
+            logger.info(f"Successfully fetched market analysis for {token} from MCP.")
+        else:
+            logger.warning(f"MCP Market Analyzer for {token} unavailable. Falling back to local.")
+            if market_analyzer: # Local market_analyzer instance
+                try:
+                    intelligence_data = await market_analyzer.analyze_token(token)
+                    sources["market_analysis"] = "local_market_analyzer"
+                    logger.info(f"Successfully used local market_analyzer for {token}.")
+                except Exception as e_local_analyzer:
+                    logger.error(f"Local market_analyzer failed for {token}: {e_local_analyzer}")
+            else:
+                logger.error("Local market_analyzer not available.")
+
+        if intelligence_data is None:
+            # If no base intelligence data could be fetched, raise an error.
+            logger.error(f"Could not retrieve market analysis for {token} from any source.")
+            raise HTTPException(status_code=503, detail=f"Market analysis for {token} is currently unavailable from all sources.")
+
+        # 2. Fetch Consciousness Sentiment
+        logger.info(f"Attempting to fetch market emotions/sentiment for {token} context from MCP.")
+        # Note: get_mcp_market_emotions() is general. If a token-specific sentiment from MCP is needed,
+        # the client/service might need to support passing 'token' or 'intelligence_data'.
+        # For now, we call it generally, or one could create a new client for context-specific sentiment.
+        mcp_emotions = await get_mcp_market_emotions()
+        if mcp_emotions:
+            consciousness_sentiment_data = mcp_emotions # Or a specific field like mcp_emotions.get("token_sentiment")
+            sources["consciousness_sentiment"] = "mcp_consciousness_layer"
+            logger.info(f"Successfully fetched general market emotions from MCP for {token} context.")
+        else:
+            logger.warning(f"MCP Consciousness Layer for emotions/sentiment unavailable for {token}. Falling back to local.")
+            if rehoboam: # Local rehoboam instance for sentiment
+                try:
+                    # Local sentiment analysis can be more context-aware
+                    consciousness_sentiment_data = await rehoboam.analyze_sentiment(token, intelligence_data)
+                    sources["consciousness_sentiment"] = "local_rehoboam_ai"
+                    logger.info(f"Successfully used local Rehoboam AI for sentiment on {token}.")
+                except Exception as e_local_sentiment:
+                    logger.error(f"Local Rehoboam AI sentiment analysis failed for {token}: {e_local_sentiment}")
+            else:
+                logger.error("Local Rehoboam AI not available for sentiment analysis.")
         
-        # Use the real market analyzer
-        intelligence = await market_analyzer.analyze_token(token)
+        # Combine results
+        # Start with the base intelligence data
+        final_response_data = intelligence_data.copy() if intelligence_data else {}
         
-        # Add consciousness layer analysis if available
-        if rehoboam:
-            consciousness_analysis = await rehoboam.analyze_sentiment(token, intelligence)
-            intelligence["consciousness_sentiment"] = consciousness_analysis
+        if consciousness_sentiment_data is not None:
+            final_response_data["consciousness_sentiment"] = consciousness_sentiment_data
+        else:
+            # Ensure the key exists even if data is unavailable, if desired by API contract
+            final_response_data["consciousness_sentiment"] = None
+            logger.info(f"Consciousness sentiment data unavailable for {token} from any source.")
+
+        return {
+            "token": token,
+            "data": final_response_data,
+            "sources": sources,
+            "timestamp": datetime.now().isoformat()
+        }
         
-        return intelligence
-        
+    except HTTPException: # Re-raise HTTPExceptions directly
+        raise
     except Exception as e:
-        logger.error(f"Error getting market intelligence: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in get_market_intelligence endpoint for {token}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An internal error occurred while fetching market intelligence: {str(e)}")
 
 @app.post("/api/ai/mcp-function")
 async def execute_mcp_function(function_name: str, parameters: Dict[str, Any]):
-    """Execute an MCP function using the enhanced specialist."""
+    """
+    Execute an MCP function using the locally available EnhancedMCPSpecialist.
+    This endpoint acts as a proxy to the specialist.
+    """
+    logger.info(f"Received request to execute MCP function: '{function_name}' with params: {parameters}")
     try:
         if not mcp_specialist:
+            logger.error("MCP specialist module (EnhancedMCPSpecialist) is not available.")
             raise HTTPException(status_code=503, detail="MCP specialist module not available")
         
-        # Execute the MCP function
+        logger.info(f"Handing off execution of '{function_name}' to EnhancedMCPSpecialist.")
+        # The EnhancedMCPSpecialist is responsible for the actual MCP interaction logic.
+        # If EnhancedMCPSpecialist were to directly call specific MCP services,
+        # it would ideally use registry lookups similar to utils.mcp_clients.
         result = await mcp_specialist.execute_function(function_name, parameters)
         
+        logger.info(f"Successfully executed MCP function '{function_name}' via EnhancedMCPSpecialist.")
         return {
             "function_name": function_name,
             "parameters": parameters,
             "result": result,
             "timestamp": datetime.now().isoformat(),
-            "status": "success"
+            "status": "success",
+            "source": "local_enhanced_mcp_specialist"
         }
-        
+    except HTTPException: # Re-raise HTTPExceptions directly
+        raise
     except Exception as e:
-        logger.error(f"Error executing MCP function: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error during execution of MCP function '{function_name}' via EnhancedMCPSpecialist: {str(e)}")
+        # Consider if more specific error codes can be returned based on exception type from specialist
+        raise HTTPException(status_code=500, detail=f"Error executing MCP function '{function_name}': {str(e)}")
 
 # Etherscan Blockchain Analysis Endpoints
 

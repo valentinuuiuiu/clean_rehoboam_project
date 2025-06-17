@@ -66,6 +66,9 @@ const AICompanionCreator = () => {
   
   // Fetch conversation history for a companion
   const fetchConversationHistory = useCallback(async (companionName) => {
+    // Assumes API is served from the same origin or proxied.
+    // For explicit base URL, consider: const baseUrl = import.meta.env.VITE_API_URL || '';
+    // const response = await fetch(`${baseUrl}/api/companions/${companionName}/conversation`);
     try {
       const response = await fetch(`/api/companions/${companionName}/conversation`);
       if (!response.ok) {
@@ -91,6 +94,9 @@ const AICompanionCreator = () => {
     
     try {
       // Make sure to use the exact endpoint path with no trailing slash
+      // Assumes API is served from the same origin or proxied.
+      // For explicit base URL, consider: const baseUrl = import.meta.env.VITE_API_URL || '';
+      // const response = await fetch(`${baseUrl}/api/companions`, {
       const response = await fetch('/api/companions', {
         method: 'GET',
         headers: {
@@ -152,6 +158,9 @@ const AICompanionCreator = () => {
         archetypes: companionForm.archetypes.split(',').map(archetype => archetype.trim()),
       };
       
+      // Assumes API is served from the same origin or proxied.
+      // For explicit base URL, consider: const baseUrl = import.meta.env.VITE_API_URL || '';
+      // const response = await fetch(`${baseUrl}/api/companions`, {
       const response = await fetch('/api/companions', {
         method: 'POST',
         headers: {
@@ -223,12 +232,17 @@ const AICompanionCreator = () => {
     try {
       console.log('Making API call to:', `/api/companions/${selectedCompanion.name}/interact`);
       
+      // Assumes API is served from the same origin or proxied.
+      // For explicit base URL, consider: const baseUrl = import.meta.env.VITE_API_URL || '';
+      // const response = await fetch(`${baseUrl}/api/companions/${selectedCompanion.name}/interact`, {
       const response = await fetch(`/api/companions/${selectedCompanion.name}/interact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: originalInput }),
+        // Backend defaults session_id to "default" if not provided.
+        // For distinct sessions, a session_id should be generated and included here.
+        body: JSON.stringify({ message: originalInput /*, session_id: "some_unique_session_id" */ }),
       });
       
       console.log('API response status:', response.status, response.statusText);
