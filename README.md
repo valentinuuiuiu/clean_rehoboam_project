@@ -8,8 +8,18 @@ This project represents a revolutionary integration of AI consciousness with aut
 
 **🎉 LATEST UPDATE**: Complete consciousness integration with arbitrage bots - transforming simple automation into intelligent, ethical AI-driven trading!
 
+## System Architecture
+
+The Rehoboam platform is built around a central FastAPI backend application (`api_server.py`) that serves as the primary interface for user interactions and core trading logic. This backend is complemented by the **Model Context Protocol (MCP)** system, a suite of specialized microservices (e.g., `mcp-registry`, `mcp-consciousness-layer`, `mcp-market-analyzer`) defined in `docker-compose.yml`.
+
+The FastAPI server (`api_server.py`) interacts with these MCP services to leverage advanced AI capabilities. It discovers and communicates with them primarily through the `mcp-registry`, allowing for a modular and extensible AI architecture. The frontend React application interacts with the FastAPI backend.
+
 ## Features
 
+- **Rehoboam Consciousness**: The core AI's advanced state, emotional analysis, and decision-making framework. Primarily delivered via the `mcp-consciousness-layer` service, its insights are accessible through endpoints like `/api/ai/consciousness-state` and visualized in a dedicated UI tab.
+- **Model Context Protocol (MCP)**: An advanced system enabling dynamic AI function generation, registration, and execution. Core AI capabilities like sophisticated market analysis and consciousness processing are often delivered as MCP services. The MCP system can be monitored via `/api/mcp` endpoints and the "MCP Visualizer" tab in the UI.
+  > **Note**: When an MCP service is unavailable, the main API server (`api_server.py`) often falls back to locally implemented Rehoboam functions where available.
+- **AI Companions**: Interactive AI personalities offering unique insights and engagement, accessible via the `/api/companions` backend and a dedicated "AI Companions" UI tab.
 - Multi-wallet support (MetaMask and Talisman)
 - Multi-chain compatibility (Ethereum, Arbitrum, Optimism, Polygon, Base, and more)
 - Real-time price feeds and market data
@@ -108,12 +118,21 @@ The following endpoints are available for direct Web3 interactions:
     ```
     This will start:
     - Frontend (Vite): `http://localhost:5001` (or as configured by Vite)
-    - Backend API (FastAPI): `http://localhost:5002`
+    - Backend API (FastAPI): `http://localhost:5002` (Main application backend)
 
-For the full platform experience including MCP services, database, and monitoring, use Docker Compose:
+### Running with Docker (Full System - Recommended)
+
+The primary and recommended way to run the entire Rehoboam platform (including the FastAPI backend, React frontend, all MCP microservices, and PostgreSQL database) is by using Docker Compose:
+
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
+After running, the services will be available at:
+- **React Frontend**: `http://localhost:5001`
+- **FastAPI Backend**: `http://localhost:5002`
+- **MCP Registry**: `http://localhost:3001` (and other MCP services as per `docker-compose.yml`)
+
+This setup ensures all components are correctly networked and configured.
 
 ## API Endpoints
 
@@ -148,8 +167,10 @@ The main API is served by `api_server.py` and runs on port 5002.
 
 -   `POST /api/trading/execute`: Execute a trade.
     -   Body: `{action, token, network, amount, slippage, wallet}`
--   `GET /api/trading/strategies`: Get AI-generated trading strategies.
+-   `GET /api/trading/strategies`: Get AI-generated trading strategies, primarily sourced from MCP services with local fallbacks.
     -   Query params: `token`, `risk_profile`
+-   `POST /api/trading/execute-strategy`: Placeholder to acknowledge requests for executing a pre-defined strategy by ID.
+    -   Body: `{ strategyId, wallet, network }`
 -   `GET /api/trading/positions`: (To be implemented or verified)
 -   `GET /api/trading/history`: (To be implemented or verified)
 
@@ -182,15 +203,18 @@ The main API is served by `api_server.py` and runs on port 5002.
 -   `GET /api/chains/liquidity/{token}`: (To be implemented or verified)
 -   `POST /api/chains/bridge`: (To be implemented or verified)
 
-### Rehoboam AI Analysis
+### Rehoboam AI Analysis & MCP Endpoints
 
--   `GET /api/ai/emotions`: Get market emotional state analysis from Rehoboam.
--   `GET /api/ai/consciousness-state`: Get the current state of Rehoboam's consciousness layers.
--   `POST /api/ai/reason`: Use Rehoboam's advanced multi-model reasoning capabilities.
-    -   Query params: `prompt`, `task_type`, `complexity`
--   `GET /api/ai/market-intelligence/{token}`: Get comprehensive market intelligence for a token. (Covers old `/api/ai/sentiment`)
--   `POST /api/ai/mcp-function`: Execute a registered MCP function.
-    -   Query params: `function_name`, `parameters` (body)
+-   `GET /api/ai/consciousness-state`: Get the current state of Rehoboam's consciousness, primarily sourced from the `mcp-consciousness-layer` via `api_mcp.py`.
+-   `GET /api/ai/emotions`: Get general market emotional state, typically from the `mcp-consciousness-layer`.
+-   `GET /api/ai/market-intelligence/{token}`: Get comprehensive market intelligence for a token, using MCP services for analysis and sentiment where available.
+-   `POST /api/ai/reason`: Use advanced multi-model reasoning capabilities, prioritizing MCP reasoning services.
+    -   Body: `prompt`, `task_type`, `complexity` (Note: previous README said query params, but POST usually means body).
+-   `POST /api/ai/mcp-function`: Execute a function through the local `EnhancedMCPSpecialist` (which acts as a proxy or simulation for direct MCP function calls).
+    -   Body: `function_name`, `parameters`
+-   `GET /api/mcp/status`: Get the status of connected MCP services (as reported by `api_mcp.py`).
+-   `GET /api/mcp/functions`: Get list of registered MCP functions (from `mcp-registry` via `api_mcp.py`).
+-   `GET /api/mcp/function-calls`: Get recent MCP function call history.
 -   `GET /api/ai/prediction/{token}`: (To be implemented or verified)
 -   `GET /api/ai/regime`: (To be implemented or verified)
 
@@ -222,11 +246,11 @@ The main API is served by `api_server.py` and runs on port 5002.
 
 -   Endpoints for managing and visualizing MCP functions are available under the `/mcp` prefix (e.g., `/mcp/functions`, `/mcp/ws`). These are defined in [`api_mcp.py`](api_mcp.py:1).
 
-### System Management (Legacy/Review Needed)
+### System Management (Legacy/Deprecated)
 
--   `GET /api/system/status`: (Functionality covered by `/health` on the FastAPI server)
--   `GET /api/system/logs`: (To be implemented or verified)
--   `POST /api/system/config`: (To be implemented or verified)
+-   `GET /api/system/status`: Deprecated. Use `/health` on the FastAPI server.
+-   `GET /api/system/logs`: Deprecated. Container logs (e.g., via `docker-compose logs api`) should be used.
+-   `POST /api/system/config`: Deprecated. Configuration is managed via `.env` files and MCP service configurations.
 
 ### Example Response Format
 ```json

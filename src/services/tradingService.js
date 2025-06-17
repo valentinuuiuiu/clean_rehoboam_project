@@ -1,9 +1,11 @@
 // Trading service to connect frontend with backend API
-const API_BASE_URL = 'http://localhost:5002';
+// Use Vite environment variable for API base URL, with a fallback for local development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
 
 class TradingService {
   constructor() {
     this.baseURL = API_BASE_URL;
+    console.log(`TradingService initialized with baseURL: ${this.baseURL}`);
   }
 
   // Helper method for making API requests
@@ -34,33 +36,30 @@ class TradingService {
     }
   }
 
-  // Get current prices for tokens using real Chainlink and API data
-  async getPrices(tokens = ['ETH', 'BTC', 'USDC']) {
+  // Get current prices for tokens
+  async getPrices(tokens = ['ETH', 'BTC', 'USDC', 'LINK']) {
+    // Uses the /api/prices/batch endpoint on the backend
     try {
-      const prices = {};
-      for (const token of tokens) {
-        const response = await this.makeRequest(`/api/price/${token}`);
-        prices[token] = response.price;
-      }
-      return prices;
+      const response = await this.makeRequest(`/api/prices/batch?symbols=${tokens.join(',')}`);
+      // Expected response: { prices: { ETH: ..., BTC: ... }, timestamp: ..., ... }
+      return response.prices || {}; // Return the prices object, or empty if not found
     } catch (error) {
-      console.error('Failed to fetch prices:', error);
-      throw error;
+      console.error('Failed to fetch batch prices:', error);
+      throw error; // Re-throw to be handled by the caller
     }
   }
 
   // Execute a trade (buy/sell)
   async executeTrade(tradeData) {
-    // Validate trade parameters
+    // Backend endpoint: POST /api/trading/execute
+    // Payload: { action, token, network, amount, slippage, wallet }
+    // Validate trade parameters (basic client-side validation)
     if (!tradeData || typeof tradeData !== 'object') {
-      throw new Error('Invalid trade data');
+      throw new Error('Invalid trade data provided to executeTrade');
     }
-    if (tradeData.price <= 0) {
-      throw new Error('Trade price must be greater than zero');
-    }
-    if (tradeData.amount <= 0) {
-      throw new Error('Trade amount must be greater than zero');
-    }
+    // Further validation (e.g., amount > 0) can be done in the component or backend
+    // tradeData.price is not explicitly in the App.jsx form, assuming backend handles price discovery or it's part of strategy
+
     try {
       const response = await this.makeRequest('/api/trading/execute', 'POST', tradeData);
       return response;
@@ -71,20 +70,29 @@ class TradingService {
   }
 
   // Get available trading strategies
-  async getStrategies() {
+  async getStrategies(token = 'ETH', riskProfile = 'moderate') {
+    // Backend endpoint: GET /api/trading/strategies
+    // Query params: token, risk_profile
     try {
-      const response = await this.makeRequest('/api/strategies');
-      return response;
+      const response = await this.makeRequest(`/api/trading/strategies?token=${token}&risk_profile=${riskProfile}`);
+      // Expected response: { strategies: [...], mcp_services_status: {...}, ... }
+      return response.strategies || []; // Return the strategies array, or empty if not found
     } catch (error) {
       console.error('Failed to get strategies:', error);
       throw error;
     }
   }
 
-  // Execute a trading strategy
-  async executeStrategy(strategyData) {
+  // Execute a trading strategy by its ID (conceptual)
+  async executeStrategy(strategyExecutionData) {
+    // Backend endpoint: POST /api/trading/execute-strategy (Conceptual - needs backend implementation)
+    // This endpoint is assumed. If not available, this function needs to be re-thought.
+    // strategyExecutionData might include { strategyId, wallet, network, amount_percentage_of_balance, etc. }
+    console.warn('executeStrategy called. Assumes backend endpoint /api/trading/execute-strategy exists.');
     try {
-      const response = await this.makeRequest('/api/strategies/execute', 'POST', strategyData);
+      // TODO: Define the actual endpoint and payload for executing a strategy by ID on the backend.
+      // For now, this is a placeholder call.
+      const response = await this.makeRequest('/api/trading/execute-strategy', 'POST', strategyExecutionData);
       return response;
     } catch (error) {
       console.error('Failed to execute strategy:', error);
@@ -92,29 +100,50 @@ class TradingService {
     }
   }
 
-  // Get portfolio data
+  // Get portfolio summary
   async getPortfolio() {
+    // Backend endpoint: GET /api/portfolio/summary
     try {
-      const response = await this.makeRequest('/api/portfolio');
+      const response = await this.makeRequest('/api/portfolio/summary');
       return response;
     } catch (error) {
-      console.error('Failed to get portfolio:', error);
+      console.error('Failed to get portfolio summary:', error);
       throw error;
     }
   }
 
-  // Get market sentiment analysis
-  async getMarketSentiment(symbol = 'BTC') {
+  // Get market intelligence (which includes sentiment) for a specific token
+  async getMarketSentiment(symbol = 'BTC') { // Renaming for consistency with App.jsx, but it fetches full intelligence
+    // Backend endpoint: GET /api/ai/market-intelligence/{token}
     try {
-      const response = await this.makeRequest(`/api/sentiment/${symbol}`);
-      return response;
+      const response = await this.makeRequest(`/api/ai/market-intelligence/${symbol}`);
+      // Expected response: { token, data: { ..., consciousness_sentiment: ... }, sources, timestamp }
+      // The App.jsx currently uses response.sentiment and response.analysis directly from a different structure.
+      // This will require App.jsx to adapt to the new richer response structure.
+      // For now, we return the whole data part.
+      return response.data || { analysis: "No analysis available.", sentiment: 50, insights: [], recommendations: [] };
     } catch (error) {
-      console.error('Failed to get market sentiment:', error);
+      console.error(`Failed to get market intelligence for ${symbol}:`, error);
+      // Provide a default structure on error to prevent UI crashes if App.jsx isn't updated yet
+      return { analysis: `Error fetching analysis for ${symbol}.`, sentiment: 50, insights: [], recommendations: [] };
+    }
+  }
+
+  // Get general market emotions (not token-specific)
+  async getMarketEmotions() {
+    // Backend endpoint: GET /api/ai/emotions
+    try {
+      const response = await this.makeRequest('/api/ai/emotions');
+      // Expected response: { timestamp, source, data: { ...emotions_data... } }
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get market emotions:', error);
       throw error;
     }
   }
 
   // Get arbitrage opportunities
+  // Backend endpoint: GET /api/arbitrage/opportunities?token=TOKEN
   async getArbitrageOpportunities() {
     try {
       const response = await this.makeRequest('/api/arbitrage/opportunities');

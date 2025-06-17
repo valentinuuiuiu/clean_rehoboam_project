@@ -4,6 +4,7 @@ import MCPFunctionVisualizer from './components/MCPFunctionVisualizer';
 import MCPStatus from './components/MCPStatus';
 import VetalaProtectionDashboard from './components/VetalaProtectionDashboard';
 import ProfitableFlashArbitrage from './components/ProfitableFlashArbitrage';
+import ConsciousnessDisplay from './components/ConsciousnessDisplay'; // Import new component
 import { useWeb3 } from './contexts/Web3Context';
 import { useNotification } from './contexts/NotificationContext';
 import tradingService from './services/tradingService';
@@ -60,10 +61,85 @@ function App() {
 
   const loadMarketAnalysis = async () => {
     try {
-      const analysis = await tradingService.getMarketSentiment();
-      setMarketAnalysis(analysis);
+      // tradingService.getMarketSentiment now calls /api/ai/market-intelligence/{token}
+      // and returns the 'data' part of that response.
+      // We'll use 'ETH' as a default for this general display.
+      const rawAnalysisData = await tradingService.getMarketSentiment('ETH');
+
+      if (rawAnalysisData) {
+        let sentimentValue = 65; // Default UI sentiment (0-100 scale)
+        let analysisText = 'No detailed analysis text available from this source.';
+        let insights = [];
+        let recommendations = [];
+
+        // Attempt to extract sentiment value (assuming it might be 0-1 or 0-100)
+        if (rawAnalysisData.consciousness_sentiment) {
+          if (typeof rawAnalysisData.consciousness_sentiment.sentiment_score === 'number') {
+            // If score is 0-1, scale to 0-100
+            sentimentValue = rawAnalysisData.consciousness_sentiment.sentiment_score > 1
+                           ? Math.round(rawAnalysisData.consciousness_sentiment.sentiment_score)
+                           : Math.round(rawAnalysisData.consciousness_sentiment.sentiment_score * 100);
+          } else if (typeof rawAnalysisData.consciousness_sentiment.sentiment === 'number') { // another possible field
+             sentimentValue = rawAnalysisData.consciousness_sentiment.sentiment > 1
+                           ? Math.round(rawAnalysisData.consciousness_sentiment.sentiment)
+                           : Math.round(rawAnalysisData.consciousness_sentiment.sentiment * 100);
+          }
+        } else if (typeof rawAnalysisData.sentiment === 'number') {
+           sentimentValue = rawAnalysisData.sentiment > 1
+                           ? Math.round(rawAnalysisData.sentiment)
+                           : Math.round(rawAnalysisData.sentiment * 100);
+        } else if (rawAnalysisData.mcp_data && typeof rawAnalysisData.mcp_data.sentiment === 'number') { // Check within mcp_data
+           sentimentValue = rawAnalysisData.mcp_data.sentiment > 1
+                           ? Math.round(rawAnalysisData.mcp_data.sentiment)
+                           : Math.round(rawAnalysisData.mcp_data.sentiment * 100);
+        }
+
+
+        // Attempt to extract textual analysis
+        if (typeof rawAnalysisData.summary === 'string' && rawAnalysisData.summary.length > 0) {
+          analysisText = rawAnalysisData.summary;
+        } else if (typeof rawAnalysisData.description === 'string' && rawAnalysisData.description.length > 0) {
+          analysisText = rawAnalysisData.description;
+        } else if (typeof rawAnalysisData.analysis === 'string' && rawAnalysisData.analysis.length > 0) { // from service fallback
+          analysisText = rawAnalysisData.analysis;
+        } else if (rawAnalysisData.mcp_data && typeof rawAnalysisData.mcp_data.summary === 'string' && rawAnalysisData.mcp_data.summary.length > 0) {
+          analysisText = rawAnalysisData.mcp_data.summary;
+        } else if (rawAnalysisData.mcp_data && typeof rawAnalysisData.mcp_data.text === 'string' && rawAnalysisData.mcp_data.text.length > 0) {
+          analysisText = rawAnalysisData.mcp_data.text;
+        }
+
+        // Extract insights and recommendations if they exist
+        insights = rawAnalysisData.insights || [];
+        recommendations = rawAnalysisData.recommendations || [];
+
+        setMarketAnalysis({
+          sentiment: sentimentValue,
+          analysis: analysisText,
+          insights: insights,
+          recommendations: recommendations,
+          full_data: rawAnalysisData // Store full data if needed elsewhere or for debugging
+        });
+
+      } else {
+        // Fallback if rawAnalysisData is null/undefined (service might have returned its own error object)
+        setMarketAnalysis({
+          sentiment: 50, // Neutral default
+          analysis: 'Market analysis data is currently unavailable.',
+          insights: [],
+          recommendations: [],
+          full_data: null
+        });
+        addNotification('warning', 'Market analysis data structure unexpected or unavailable.');
+      }
     } catch (error) {
-      console.error('Error loading market analysis:', error);
+      console.error('Error loading market analysis in App.jsx:', error);
+      setMarketAnalysis({
+        sentiment: 50, // Neutral default on error
+        analysis: 'Failed to load market analysis.',
+        insights: [],
+        recommendations: [],
+        full_data: null
+      });
       addNotification('error', 'Failed to load market analysis');
     }
   };
@@ -207,6 +283,16 @@ function App() {
               onClick={() => setActiveTab('flash-arbitrage')}
             >
               ⚡ Flash Arbitrage
+            </button>
+            <button
+              className={`px-4 py-2 font-medium ${
+                activeTab === 'consciousness'
+                  ? 'text-purple-400 border-b-2 border-purple-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+              onClick={() => setActiveTab('consciousness')}
+            >
+              🧠 Consciousness
             </button>
           </div>
         </div>
@@ -677,6 +763,11 @@ function App() {
         {activeTab === 'flash-arbitrage' && (
           <div className="my-8">
             <ProfitableFlashArbitrage />
+          </div>
+        )}
+        {activeTab === 'consciousness' && (
+          <div className="my-8">
+            <ConsciousnessDisplay />
           </div>
         )}
       </main>

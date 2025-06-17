@@ -11,6 +11,9 @@ import httpx
 import json
 import jwt
 from pydantic import BaseModel, Field
+import random
+import uuid
+from datetime import timezone
 
 # Load environment variables first
 from dotenv import load_dotenv
@@ -75,6 +78,8 @@ gas_estimator = Layer2GasEstimator()
 # arbitrage = Layer2Arbitrage()  # Now using arbitrage_service
 liquidation = Layer2Liquidation()
 trading_optimizer = Layer2TradingOptimizer()
+
+import time # For unique ID generation in strategy execution
 
 # Initialize RehoboamAI consciousness layers and intelligence modules
 try:
@@ -632,34 +637,249 @@ async def execute_trade(trade_data: dict):
 async def get_trading_positions(user_id: str = Depends(get_current_user)):
     """Get current open trading positions. Placeholder."""
     # In a real app, fetch positions for user_id from a database or trading service
-    logger.info(f"Fetching trading positions for user: {user_id} (placeholder)")
-    return {
-        "success": True,
-        "data": [
-            {"id": "pos_1", "token": "ETH", "amount": 2.5, "entry_price": 3000, "current_price": 3450, "pnl": 1125, "network": "arbitrum"},
-            {"id": "pos_2", "token": "BTC", "amount": 0.1, "entry_price": 58000, "current_price": 59423, "pnl": 142.3, "network": "ethereum"}
-        ],
-        "metadata": {"timestamp": datetime.now().isoformat(), "count": 2}
-    }
+    logger.info(f"Fetching trading positions for user: {user_id}")
 
-@app.get("/api/trading/history")
+    mock_positions = []
+    tokens = ["ETH", "BTC", "SOL", "AVAX", "DOGE"]
+    networks = ["ethereum", "arbitrum", "polygon", "optimism", "base"]
+
+    for _ in range(random.randint(1, 3)):
+        token = random.choice(tokens)
+        entry_price = round(random.uniform(10, 50000), 2)
+        current_price_multiplier = random.uniform(0.8, 1.2)
+        current_price = round(entry_price * current_price_multiplier, 2)
+        amount = round(random.uniform(0.01, 10), 4)
+        pnl = round((current_price - entry_price) * amount, 2)
+
+        position = TradingPosition(
+            id=f"pos_{uuid.uuid4().hex[:8]}",
+            token=token,
+            amount=amount,
+            entry_price=entry_price,
+            current_price=current_price,
+            pnl=pnl,
+            network=random.choice(networks),
+            timestamp=datetime.now(timezone.utc)
+        )
+        mock_positions.append(position)
+
+    return mock_positions
+
+# Pydantic model for a single trade history record
+class TradeHistoryRecord(BaseModel):
+    id: str
+    token: str
+    amount: float
+    price: float
+    side: str # "buy" or "sell"
+    timestamp: datetime
+    network: str
+    status: str # e.g., 'filled', 'cancelled', 'pending'
+
+@app.get("/api/trading/history", response_model=Dict[str, Union[List[TradeHistoryRecord], Dict[str, Any]]])
 async def get_trading_history(
     user_id: str = Depends(get_current_user),
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = Query(100, gt=0, le=1000)
 ):
-    """Get trading history. Placeholder."""
-    # In a real app, fetch history for user_id, filtered by dates and limit
-    logger.info(f"Fetching trading history for user: {user_id}, start: {start_date}, end: {end_date}, limit: {limit} (placeholder)")
+    """Get trading history with more dynamic mock data."""
+    logger.info(f"Fetching trading history for user: {user_id}, start: {start_date}, end: {end_date}, limit: {limit}")
+
+    mock_history = []
+    tokens = ["ETH", "BTC", "SOL", "LINK", "ADA"]
+    networks = ["ethereum", "arbitrum", "polygon", "bsc"]
+    sides = ["buy", "sell"]
+    statuses = ["filled", "filled", "filled", "cancelled"] # Higher chance of 'filled'
+
+    for _ in range(random.randint(2, 5)):
+        record = TradeHistoryRecord(
+            id=f"trade_{uuid.uuid4().hex[:10]}",
+            token=random.choice(tokens),
+            amount=round(random.uniform(0.1, 5.0), 3),
+            price=round(random.uniform(20, 60000), 2),
+            side=random.choice(sides),
+            timestamp=datetime.now(timezone.utc), # In a real app, this would be historical
+            network=random.choice(networks),
+            status=random.choice(statuses)
+        )
+        mock_history.append(record)
+
+    # The mock logic doesn't implement actual filtering by date/limit,
+    # but we acknowledge the parameters in metadata.
+    # If 'limit' is applied, it should be applied to the generated list.
+    # For this mock, we'll just cap it by the requested limit if it's smaller than generated.
+    final_history = mock_history[:min(len(mock_history), limit)]
+
     return {
-        "success": True,
-        "data": [
-            {"id": "trade_1", "token": "ETH", "amount": 1.0, "price": 3050, "side": "buy", "timestamp": "2024-05-20T10:00:00Z", "network": "arbitrum"},
-            {"id": "trade_2", "token": "ETH", "amount": 0.5, "price": 3200, "side": "sell", "timestamp": "2024-05-21T14:30:00Z", "network": "arbitrum"}
-        ],
-        "metadata": {"timestamp": datetime.now().isoformat(), "count": 2, "start_date": start_date, "end_date": end_date}
+        "data": final_history,
+        "metadata": {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "count": len(final_history),
+            "total_available_mock": len(mock_history), # Just for info about mock generation
+            "requested_limit": limit,
+            "start_date": start_date,
+            "end_date": end_date,
+            "user_id": user_id # For confirmation
+        }
     }
+
+# Pydantic model for a single trading position
+class TradingPosition(BaseModel):
+    id: str
+    token: str
+    amount: float
+    entry_price: float
+    current_price: float
+    pnl: float
+    network: str
+    timestamp: datetime
+
+# Pydantic model for strategy execution request
+class StrategyExecutionRequest(BaseModel):
+    strategyId: str
+    wallet: str
+    network: Optional[str] = None
+    # Add any other parameters the frontend might send or strategy execution might need
+    amount: Optional[float] = Field(None, gt=0, description="Optional amount to override strategy's default")
+
+# Mock strategies - in a real system, these would come from a database or config
+MOCK_STRATEGIES = {
+    "BUY_ETH_ARBITRUM_0.01": {
+        "description": "Buy 0.01 ETH on Arbitrum network.",
+        "action_type": "BUY", # Or use 'type': 'buy'
+        "token_pair": "ETH/USDC", # Example, actual execution might just need target token
+        "target_token": "ETH",
+        "amount": 0.01,
+        "network": "arbitrum",
+        # Parameters for adapting to an "opportunity-like" structure for ConsciousArbitrageEngine
+        "opportunity_details": {
+            "source_exchange": "mock_exchange_arbitrum", # Placeholder
+            "target_exchange": "mock_exchange_arbitrum", # Placeholder
+            "price_difference_percentage": 0.0, # Not a true arbitrage
+            "profit_potential_usd": 0.0, # Placeholder
+            "estimated_gas_cost_usd": 0.05, # Placeholder
+            "complexity": 0.2, # Simple trade
+            "risk_score": 0.3, # Assuming moderate risk for a simple buy
+        }
+    },
+    "SELL_BTC_OPTIMISM_0.001": {
+        "description": "Sell 0.001 BTC on Optimism network.",
+        "action_type": "SELL",
+        "token_pair": "BTC/USDC",
+        "target_token": "BTC",
+        "amount": 0.001,
+        "network": "optimism",
+        "opportunity_details": {
+            "source_exchange": "mock_exchange_optimism",
+            "target_exchange": "mock_exchange_optimism",
+            "price_difference_percentage": 0.0,
+            "profit_potential_usd": 0.0,
+            "estimated_gas_cost_usd": 0.03,
+            "complexity": 0.2,
+            "risk_score": 0.3,
+        }
+    }
+}
+# Make sure conscious_arbitrage_engine is imported and initialized
+# This should be near the top with other initializations
+try:
+    from utils.conscious_arbitrage_engine import conscious_arbitrage_engine, ConsciousArbitrageDecision
+    from dataclasses import asdict # For converting dataclass to dict if needed for response
+    # time is imported at the top of the file
+except ImportError as e:
+    logger.error(f"Failed to import conscious_arbitrage_engine or related modules: {e}. Strategy execution will not work.")
+    conscious_arbitrage_engine = None
+
+
+@app.post("/api/trading/execute-strategy")
+async def execute_trading_strategy(payload: StrategyExecutionRequest, user_id: str = Depends(get_current_user)):
+    """
+    Placeholder endpoint to acknowledge a strategy execution request.
+    Actual execution logic is not implemented yet.
+    """
+    logger.info(
+        f"User '{user_id}' initiated execution for strategy ID: {payload.strategyId} "
+        f"on wallet: {payload.wallet}, network: {payload.network or 'strategy default'}, amount: {payload.amount or 'strategy default'}"
+    )
+
+    strategy_details = MOCK_STRATEGIES.get(payload.strategyId)
+    if not strategy_details:
+        logger.error(f"Strategy ID '{payload.strategyId}' not found in MOCK_STRATEGIES.")
+        raise HTTPException(status_code=404, detail=f"Strategy ID '{payload.strategyId}' not found.")
+
+    if not conscious_arbitrage_engine:
+        logger.error("ConsciousArbitrageEngine not available for strategy execution.")
+        raise HTTPException(status_code=503, detail="Conscious Arbitrage Engine is not available.")
+
+    # Adapt strategy to an "opportunity-like" structure for the engine
+    # The engine's execute_conscious_arbitrage eventually calls arbitrage_service.execute_arbitrage,
+    # which might be too specific for general strategy execution if it only handles arbitrage.
+    # For this iteration, we assume 'execute_arbitrage' in arbitrage_service can handle simple buy/sell if structured correctly,
+    # or that ConsciousArbitrageEngine's analysis can guide a general execution.
+
+    execution_amount = payload.amount if payload.amount is not None else strategy_details["amount"]
+    execution_network = payload.network or strategy_details["network"]
+
+    # This structure needs to be compatible with what conscious_arbitrage_engine's analysis methods expect
+    # and ultimately what arbitrage_service.execute_arbitrage might handle.
+    adapted_opportunity = {
+        "id": f"strat_exec_{payload.strategyId}_{int(time.time())}",
+        "strategy_id": payload.strategyId,
+        "description": strategy_details["description"],
+        "token_pair": strategy_details["token_pair"], # For analysis context
+        "target_token": strategy_details["target_token"],
+        "action": strategy_details["action_type"].lower(), # 'buy' or 'sell'
+        "amount": execution_amount,
+        "network": execution_network,
+        "wallet_address": payload.wallet, # For execution layer
+        "source_exchange": strategy_details["opportunity_details"]["source_exchange"], # Placeholder
+        "target_exchange": strategy_details["opportunity_details"]["target_exchange"], # Placeholder
+        "price_difference_percentage": strategy_details["opportunity_details"]["price_difference_percentage"],
+        "profit_potential_usd": strategy_details["opportunity_details"]["profit_potential_usd"],
+        "estimated_gas_cost_usd": strategy_details["opportunity_details"]["estimated_gas_cost_usd"],
+        "complexity": strategy_details["opportunity_details"].get("complexity", 0.2),
+        "risk_score": strategy_details["opportunity_details"].get("risk_score", 0.3)
+        # Add other fields as expected by ConsciousArbitrageEngine's analysis methods
+    }
+
+    logger.debug(f"Adapted strategy to opportunity-like structure: {adapted_opportunity}")
+
+    try:
+        # 1. (Optional but recommended) Analyze with consciousness
+        # This step might need the engine's analysis methods to be robust for non-arbitrage "opportunities"
+        logger.info(f"Analyzing strategy '{payload.strategyId}' with ConsciousArbitrageEngine.")
+        decision = await conscious_arbitrage_engine.analyze_opportunity_with_consciousness(adapted_opportunity)
+
+        if decision.recommended_action != 'execute':
+            logger.warning(f"ConsciousArbitrageEngine did not recommend execution for strategy '{payload.strategyId}'. Action: {decision.recommended_action}. Reasoning: {decision.reasoning}")
+            return {
+                "status": "rejected_by_consciousness",
+                "message": f"Strategy execution not recommended by AI consciousness. Recommendation: {decision.recommended_action}",
+                "strategy_id": payload.strategyId,
+                "decision_details": asdict(decision) if hasattr(decision, 'asdict') else vars(decision) # Pydantic V1/V2
+            }
+
+        logger.info(f"ConsciousArbitrageEngine recommended execution for strategy '{payload.strategyId}'. Proceeding...")
+
+        # 2. Execute (assuming execute_conscious_arbitrage can handle this adapted structure)
+        # The 'amount' for execution will be taken from adapted_opportunity['amount'] by the engine.
+        execution_result = await conscious_arbitrage_engine.execute_conscious_arbitrage(decision, adapted_opportunity)
+
+        logger.info(f"Strategy '{payload.strategyId}' execution attempt result: {execution_result}")
+
+        return {
+            "status": "success" if execution_result.get("success") else "failed",
+            "message": f"Strategy '{payload.strategyId}' execution processed.",
+            "strategy_id": payload.strategyId,
+            "execution_details": execution_result,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error during strategy execution for ID '{payload.strategyId}': {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error executing strategy: {str(e)}")
+
 
 @app.get("/api/portfolio/summary")
 async def get_portfolio_summary():
