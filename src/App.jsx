@@ -22,8 +22,6 @@ function App() {
   const [strategies, setStrategies] = useState([]);
   const [marketAnalysis, setMarketAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
-  // const [rehoboamActive, setRehoboamActive] = useState(false); // Removed
-  // const [rehoboamAI, setRehoboamAI] = useState(null); // Removed
   const [liveData, setLiveData] = useState({
     prices: { BTC: 59423.50, ETH: 3452.18, LINK: 14.85 },
     lastUpdate: new Date()
@@ -32,21 +30,12 @@ function App() {
   const { account, connectWallet, isConnected, balance } = useWeb3();
   const { addNotification } = useNotification();
 
-  // Load strategies and market analysis on component mount
   useEffect(() => {
     loadTradingStrategies();
     loadMarketAnalysis();
     loadLivePrices();
-    
-    // Removed Rehoboam AI initialization
-    
-    // Set up live price updates
-    const priceInterval = setInterval(loadLivePrices, 10000); // Every 10 seconds
-    
-    return () => {
-      // if (ai) ai.deactivate(); // Removed Rehoboam AI deactivation
-      clearInterval(priceInterval);
-    };
+    const priceInterval = setInterval(loadLivePrices, 10000);
+    return () => clearInterval(priceInterval);
   }, []);
 
   const loadTradingStrategies = async () => {
@@ -61,85 +50,16 @@ function App() {
 
   const loadMarketAnalysis = async () => {
     try {
-      // tradingService.getMarketSentiment now calls /api/ai/market-intelligence/{token}
-      // and returns the 'data' part of that response.
-      // We'll use 'ETH' as a default for this general display.
       const rawAnalysisData = await tradingService.getMarketSentiment('ETH');
-
       if (rawAnalysisData) {
-        let sentimentValue = 65; // Default UI sentiment (0-100 scale)
-        let analysisText = 'No detailed analysis text available from this source.';
-        let insights = [];
-        let recommendations = [];
-
-        // Attempt to extract sentiment value (assuming it might be 0-1 or 0-100)
-        if (rawAnalysisData.consciousness_sentiment) {
-          if (typeof rawAnalysisData.consciousness_sentiment.sentiment_score === 'number') {
-            // If score is 0-1, scale to 0-100
-            sentimentValue = rawAnalysisData.consciousness_sentiment.sentiment_score > 1
-                           ? Math.round(rawAnalysisData.consciousness_sentiment.sentiment_score)
-                           : Math.round(rawAnalysisData.consciousness_sentiment.sentiment_score * 100);
-          } else if (typeof rawAnalysisData.consciousness_sentiment.sentiment === 'number') { // another possible field
-             sentimentValue = rawAnalysisData.consciousness_sentiment.sentiment > 1
-                           ? Math.round(rawAnalysisData.consciousness_sentiment.sentiment)
-                           : Math.round(rawAnalysisData.consciousness_sentiment.sentiment * 100);
-          }
-        } else if (typeof rawAnalysisData.sentiment === 'number') {
-           sentimentValue = rawAnalysisData.sentiment > 1
-                           ? Math.round(rawAnalysisData.sentiment)
-                           : Math.round(rawAnalysisData.sentiment * 100);
-        } else if (rawAnalysisData.mcp_data && typeof rawAnalysisData.mcp_data.sentiment === 'number') { // Check within mcp_data
-           sentimentValue = rawAnalysisData.mcp_data.sentiment > 1
-                           ? Math.round(rawAnalysisData.mcp_data.sentiment)
-                           : Math.round(rawAnalysisData.mcp_data.sentiment * 100);
-        }
-
-
-        // Attempt to extract textual analysis
-        if (typeof rawAnalysisData.summary === 'string' && rawAnalysisData.summary.length > 0) {
-          analysisText = rawAnalysisData.summary;
-        } else if (typeof rawAnalysisData.description === 'string' && rawAnalysisData.description.length > 0) {
-          analysisText = rawAnalysisData.description;
-        } else if (typeof rawAnalysisData.analysis === 'string' && rawAnalysisData.analysis.length > 0) { // from service fallback
-          analysisText = rawAnalysisData.analysis;
-        } else if (rawAnalysisData.mcp_data && typeof rawAnalysisData.mcp_data.summary === 'string' && rawAnalysisData.mcp_data.summary.length > 0) {
-          analysisText = rawAnalysisData.mcp_data.summary;
-        } else if (rawAnalysisData.mcp_data && typeof rawAnalysisData.mcp_data.text === 'string' && rawAnalysisData.mcp_data.text.length > 0) {
-          analysisText = rawAnalysisData.mcp_data.text;
-        }
-
-        // Extract insights and recommendations if they exist
-        insights = rawAnalysisData.insights || [];
-        recommendations = rawAnalysisData.recommendations || [];
-
-        setMarketAnalysis({
-          sentiment: sentimentValue,
-          analysis: analysisText,
-          insights: insights,
-          recommendations: recommendations,
-          full_data: rawAnalysisData // Store full data if needed elsewhere or for debugging
-        });
-
+        setMarketAnalysis({ full_data: rawAnalysisData }); // Store the whole object
       } else {
-        // Fallback if rawAnalysisData is null/undefined (service might have returned its own error object)
-        setMarketAnalysis({
-          sentiment: 50, // Neutral default
-          analysis: 'Market analysis data is currently unavailable.',
-          insights: [],
-          recommendations: [],
-          full_data: null
-        });
+        setMarketAnalysis({ full_data: null }); // Explicitly set to null if no data
         addNotification('warning', 'Market analysis data structure unexpected or unavailable.');
       }
     } catch (error) {
       console.error('Error loading market analysis in App.jsx:', error);
-      setMarketAnalysis({
-        sentiment: 50, // Neutral default on error
-        analysis: 'Failed to load market analysis.',
-        insights: [],
-        recommendations: [],
-        full_data: null
-      });
+      setMarketAnalysis({ full_data: null }); // Set to null on error
       addNotification('error', 'Failed to load market analysis');
     }
   };
@@ -149,7 +69,6 @@ function App() {
       const prices = await tradingService.getPrices(['BTC', 'ETH', 'LINK']);
       setLiveData({ prices, lastUpdate: new Date() });
     } catch (error) {
-      // Use mock data if API fails
       const mockPrices = {
         BTC: 59423.50 + (Math.random() - 0.5) * 1000,
         ETH: 3452.18 + (Math.random() - 0.5) * 200,
@@ -165,27 +84,15 @@ function App() {
       await connectWallet();
       return;
     }
-
     if (!tradingForm.amount || parseFloat(tradingForm.amount) <= 0) {
       addNotification('error', 'Please enter a valid amount');
       return;
     }
-
     setLoading(true);
     try {
-      const tradeData = {
-        action,
-        token: tradingForm.token,
-        network: tradingForm.network,
-        amount: parseFloat(tradingForm.amount),
-        slippage: tradingForm.slippage,
-        wallet: account
-      };
-
-      const result = await tradingService.executeTrade(tradeData);
+      const tradeData = { action, token: tradingForm.token, network: tradingForm.network, amount: parseFloat(tradingForm.amount), slippage: tradingForm.slippage, wallet: account };
+      await tradingService.executeTrade(tradeData);
       addNotification('success', `${action} order submitted successfully`);
-      
-      // Reset form
       setTradingForm({ ...tradingForm, amount: '' });
     } catch (error) {
       console.error(`Error executing ${action}:`, error);
@@ -201,15 +108,9 @@ function App() {
       await connectWallet();
       return;
     }
-
     setLoading(true);
     try {
-      const result = await tradingService.executeStrategy({
-        strategyId: strategy.id,
-        wallet: account,
-        network: tradingForm.network
-      });
-      
+      await tradingService.executeStrategy({ strategyId: strategy.id, wallet: account, network: tradingForm.network });
       addNotification('success', `Strategy "${strategy.name}" executed successfully`);
     } catch (error) {
       console.error('Error executing strategy:', error);
@@ -223,7 +124,16 @@ function App() {
     setTradingForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Removed toggleRehoboam function
+  const placeholderText = (text = "N/A") => <span className="text-gray-500 italic">{text}</span>;
+  const formatPercent = (val, defaultVal = 0) => ((val || defaultVal) * 100).toFixed(0) + '%';
+  const formatScorePercent = (val, defaultVal = 0) => {
+    const score = (val || defaultVal) * 100;
+    let label = 'Neutral';
+    if (score > 60) label = 'Positive';
+    else if (score < 40) label = 'Negative';
+    return `${score.toFixed(0)}% (${label})`;
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -231,69 +141,24 @@ function App() {
         <div className="container mx-auto">
           <h1 className="text-4xl font-bold mb-2">Rehoboam Platform</h1>
           <p className="text-gray-400">AI-Powered Trading & Companions</p>
-          
-          {/* Navigation Tabs */}
           <div className="flex mt-6 border-b border-gray-700">
-            <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'trading'
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTab('trading')}
-            >
-              Trading
-            </button>
-            <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'companions'
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTab('companions')}
-            >
-              AI Companions
-            </button>
-            <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'mcp'
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTab('mcp')}
-            >
-              MCP Visualizer
-            </button>
-            <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'vetala'
-                  ? 'text-yellow-400 border-b-2 border-yellow-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTab('vetala')}
-            >
-              🕉️ Vetal Shabar Raksha
-            </button>
-            <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'flash-arbitrage'
-                  ? 'text-green-400 border-b-2 border-green-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTab('flash-arbitrage')}
-            >
-              ⚡ Flash Arbitrage
-            </button>
-            <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'consciousness'
-                  ? 'text-purple-400 border-b-2 border-purple-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTab('consciousness')}
-            >
-              🧠 Consciousness
-            </button>
+            {['trading', 'companions', 'mcp', 'vetala', 'flash-arbitrage', 'consciousness'].map(tabName => (
+              <button
+                key={tabName}
+                className={`px-4 py-2 font-medium ${
+                  activeTab === tabName
+                    ? (tabName === 'vetala' ? 'text-yellow-400 border-yellow-400' :
+                       tabName === 'flash-arbitrage' ? 'text-green-400 border-green-400' :
+                       tabName === 'consciousness' ? 'text-purple-400 border-purple-400' :
+                       'text-blue-400 border-blue-400') + ' border-b-2'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                onClick={() => setActiveTab(tabName)}
+              >
+                {tabName === 'vetala' ? '🕉️ ' : tabName === 'flash-arbitrage' ? '⚡ ' : tabName === 'consciousness' ? '🧠 ' : ''}
+                {tabName.charAt(0).toUpperCase() + tabName.slice(1).replace('-', ' ')}
+              </button>
+            ))}
           </div>
         </div>
       </header>
@@ -301,160 +166,67 @@ function App() {
       <main className="container mx-auto p-4">
         {activeTab === 'trading' && (
           <div className="space-y-8">
-            {/* Import existing trading components */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2">
                 <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                  <div className="p-4 border-b border-gray-700">
-                    <h2 className="text-xl font-bold">Trading Dashboard</h2>
-                  </div>
+                  <div className="p-4 border-b border-gray-700"><h2 className="text-xl font-bold">Trading Dashboard</h2></div>
                   <div className="p-4">
-                    <div className="import-component">
-                      {/* This will be replaced by the TradingDashboard component */}
-                      <div className="bg-gray-700 p-6 rounded-lg text-center">
-                        <p className="text-gray-400 mb-4">Market Overview</p>
-                        <div className="grid grid-cols-3 gap-4 mb-6">
-                          <div className="bg-gray-800 p-3 rounded-lg">
-                            <p className="text-xs text-gray-400">BTC/USD</p>
-                            <p className="text-xl font-bold">${liveData.prices.BTC}</p>
-                            <p className="text-green-400">+2.5%</p>
+                    <div className="bg-gray-700 p-6 rounded-lg text-center">
+                      <p className="text-gray-400 mb-4">Market Overview</p>
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        {Object.entries(liveData.prices).map(([token, price]) => (
+                          <div key={token} className="bg-gray-800 p-3 rounded-lg">
+                            <p className="text-xs text-gray-400">{token}/USD</p>
+                            <p className="text-xl font-bold">${price.toFixed(2)}</p>
+                            {/* Placeholder for change, adapt if API provides it */}
+                            <p className={Math.random() > 0.5 ? "text-green-400" : "text-red-400"}>
+                              {(Math.random() * 5).toFixed(1)}%
+                            </p>
                           </div>
-                          <div className="bg-gray-800 p-3 rounded-lg">
-                            <p className="text-xs text-gray-400">ETH/USD</p>
-                            <p className="text-xl font-bold">${liveData.prices.ETH}</p>
-                            <p className="text-green-400">+1.8%</p>
-                          </div>
-                          <div className="bg-gray-800 p-3 rounded-lg">
-                            <p className="text-xs text-gray-400">LINK/USD</p>
-                            <p className="text-xl font-bold">${liveData.prices.LINK}</p>
-                            <p className="text-red-400">-0.7%</p>
-                          </div>
-                        </div>
-                        <div className="h-48 bg-gray-800 rounded-lg mb-4 flex items-center justify-center">
-                          <p className="text-gray-500">Price Chart</p>
-                        </div>
+                        ))}
+                      </div>
+                      <div className="h-48 bg-gray-800 rounded-lg mb-4 flex items-center justify-center">
+                        <p className="text-gray-500">Price Chart Area</p>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
               <div>
                 <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                  <div className="p-4 border-b border-gray-700">
-                    <h2 className="text-xl font-bold">Automated Trading</h2>
-                  </div>
+                  <div className="p-4 border-b border-gray-700"><h2 className="text-xl font-bold">Automated Trading</h2></div>
                   <div className="p-4">
-                    <div className="import-component">
-                      {/* This will be replaced by the AutomatedTrading component */}
-                      <div className="space-y-4">
-                        {/* Rehoboam AI Toggle UI Removed */}
-                        
-                        <div className="bg-gray-700 p-4 rounded-lg">
-                          {/* Manual trade controls remain */}
-                          <p className="text-sm text-gray-400 mb-3">Manual Trade Controls:</p>
-                          <div className="mb-3">
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Token</label>
-                            <select 
-                              className="bg-gray-800 border border-gray-700 rounded w-full p-2"
-                              value={tradingForm.token}
-                              onChange={(e) => updateTradingForm('token', e.target.value)}
-                            >
-                              <option value="ETH">ETH</option>
-                              <option value="BTC">BTC</option>
-                              <option value="LINK">LINK</option>
-                              <option value="UMA">UMA</option>
-                              <option value="USDC">USDC</option>
-                              <option value="USDT">USDT</option>
-                            </select>
-                          </div>
-                          
-                          <div className="mb-3">
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Network</label>
-                            <select 
-                              className="bg-gray-800 border border-gray-700 rounded w-full p-2"
-                              value={tradingForm.network}
-                              onChange={(e) => updateTradingForm('network', e.target.value)}
-                            >
-                              <option value="arbitrum">Arbitrum</option>
-                              <option value="optimism">Optimism</option>
-                              <option value="polygon">Polygon</option>
-                              <option value="base">Base</option>
-                              <option value="ethereum">Ethereum</option>
-                            </select>
-                          </div>
-                          
-                          <div className="mb-3">
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Amount</label>
-                            <input 
-                              type="number" 
-                              className="bg-gray-800 border border-gray-700 rounded w-full p-2" 
-                              placeholder="0.0"
-                              value={tradingForm.amount}
-                              onChange={(e) => updateTradingForm('amount', e.target.value)}
-                              step="0.0001"
-                              min="0"
-                            />
-                            {balance && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                Wallet Balance: {parseFloat(balance).toFixed(4)} ETH
-                              </p>
+                    <div className="space-y-4">
+                      <div className="bg-gray-700 p-4 rounded-lg">
+                        <p className="text-sm text-gray-400 mb-3">Manual Trade Controls:</p>
+                        {['token', 'network', 'amount', 'slippage'].map(field => (
+                          <div key={field} className="mb-3">
+                            <label className="block text-sm font-medium text-gray-400 mb-1">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                            {field === 'token' || field === 'network' || field === 'slippage' ? (
+                              <select
+                                className="bg-gray-800 border border-gray-700 rounded w-full p-2"
+                                value={tradingForm[field]}
+                                onChange={(e) => updateTradingForm(field, field === 'slippage' ? parseFloat(e.target.value) : e.target.value)}
+                              >
+                                {field === 'token' && ['ETH', 'BTC', 'LINK', 'UMA', 'USDC', 'USDT'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                {field === 'network' && ['arbitrum', 'optimism', 'polygon', 'base', 'ethereum'].map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
+                                {field === 'slippage' && [0.5, 1, 2, 5].map(opt => <option key={opt} value={opt}>{opt}%</option>)}
+                              </select>
+                            ) : (
+                              <input type="number" className="bg-gray-800 border border-gray-700 rounded w-full p-2" placeholder="0.0"
+                                     value={tradingForm[field]} onChange={(e) => updateTradingForm(field, e.target.value)} step="0.0001" min="0" />
                             )}
+                            {field === 'amount' && balance && <p className="text-xs text-gray-400 mt-1">Wallet Balance: {parseFloat(balance).toFixed(4)} ETH</p>}
                           </div>
-
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Slippage (%)</label>
-                            <select 
-                              className="bg-gray-800 border border-gray-700 rounded w-full p-2"
-                              value={tradingForm.slippage}
-                              onChange={(e) => updateTradingForm('slippage', parseFloat(e.target.value))}
-                            >
-                              <option value={0.5}>0.5%</option>
-                              <option value={1}>1%</option>
-                              <option value={2}>2%</option>
-                              <option value={5}>5%</option>
-                            </select>
-                          </div>
-                          
-                          {!isConnected ? (
-                            <button 
-                              onClick={connectWallet}
-                              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded mb-2"
-                            >
-                              Connect Wallet
-                            </button>
-                          ) : (
-                            <div className="mb-2">
-                              <p className="text-xs text-gray-400 mb-2">
-                                Connected: {account?.slice(0, 6)}...{account?.slice(-4)}
-                              </p>
-                            </div>
-                          )}
-                          
-                          <div className="flex space-x-2">
-                            <button 
-                              className={`w-1/2 text-white py-2 px-4 rounded ${
-                                loading 
-                                  ? 'bg-gray-600 cursor-not-allowed' 
-                                  : 'bg-green-600 hover:bg-green-500'
-                              }`}
-                              onClick={() => handleTradeExecution('buy')}
-                              disabled={loading}
-                            >
-                              {loading ? 'Processing...' : 'Buy'}
-                            </button>
-                            <button 
-                              className={`w-1/2 text-white py-2 px-4 rounded ${
-                                loading 
-                                  ? 'bg-gray-600 cursor-not-allowed' 
-                                  : 'bg-red-600 hover:bg-red-500'
-                              }`}
-                              onClick={() => handleTradeExecution('sell')}
-                              disabled={loading}
-                            >
-                              {loading ? 'Processing...' : 'Sell'}
-                            </button>
-                          </div>
+                        ))}
+                        {!isConnected ? (
+                          <Button onClick={connectWallet} className="w-full bg-blue-600 hover:bg-blue-500 text-white">Connect Wallet</Button>
+                        ) : (
+                          <p className="text-xs text-gray-400 mb-2">Connected: {account?.slice(0, 6)}...{account?.slice(-4)}</p>
+                        )}
+                        <div className="flex space-x-2">
+                          <Button onClick={() => handleTradeExecution('buy')} disabled={loading || !isConnected} className="w-1/2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600">{loading ? 'Processing...' : 'Buy'}</Button>
+                          <Button onClick={() => handleTradeExecution('sell')} disabled={loading || !isConnected} className="w-1/2 bg-red-600 hover:bg-red-500 disabled:bg-gray-600">{loading ? 'Processing...' : 'Sell'}</Button>
                         </div>
                       </div>
                     </div>
@@ -463,313 +235,118 @@ function App() {
               </div>
             </div>
             
-            {/* Strategies Section */}
             <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-700">
-                <h2 className="text-xl font-bold">AI-Powered Trading Strategies</h2>
-              </div>
+              <div className="p-4 border-b border-gray-700"><h2 className="text-xl font-bold">AI-Powered Trading Strategies</h2></div>
               <div className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {strategies.length > 0 ? (
                     strategies.map((strategy, index) => (
-                      <div key={strategy.id || index} className="border border-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <h3 className="font-bold text-xl">{strategy.name}</h3>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            strategy.risk_level === 'low' ? 'bg-green-900/30 text-green-400' :
-                            strategy.risk_level === 'moderate' ? 'bg-blue-900/30 text-blue-400' :
-                            'bg-yellow-900/30 text-yellow-400'
+                      <div key={strategy.id || index} className="bg-gray-700/50 border border-gray-600 rounded-lg p-4 shadow-md hover:shadow-blue-500/30 transition-shadow duration-300">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-bold text-xl text-blue-300">{strategy.name || placeholderText("Unnamed Strategy")}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            strategy.risk_level === 'low' ? 'bg-green-700 text-green-100' :
+                            strategy.risk_level === 'moderate' ? 'bg-blue-700 text-blue-100' :
+                            strategy.risk_level === 'high' ? 'bg-red-700 text-red-100' :
+                            'bg-gray-600 text-gray-200'
                           }`}>
-                            {strategy.risk_level} Risk
+                            {strategy.risk_level ? `${strategy.risk_level.charAt(0).toUpperCase() + strategy.risk_level.slice(1)} Risk` : placeholderText("N/A Risk")}
                           </span>
                         </div>
-                        <p className="text-gray-400 mt-2">
-                          {strategy.description}
-                        </p>
-                        <div className="flex justify-between items-center mt-3">
-                          <div>
-                            <span className="text-sm text-gray-400">Expected Return:</span>
-                            <span className="ml-2 text-green-400">{strategy.expected_return}%</span>
-                          </div>
-                          <button 
-                            className={`px-4 py-2 rounded text-white ${
-                              loading 
-                                ? 'bg-gray-600 cursor-not-allowed' 
-                                : 'bg-green-600 hover:bg-green-500'
-                            }`}
-                            onClick={() => handleStrategyExecution(strategy)}
-                            disabled={loading}
-                          >
-                            {loading ? 'Processing...' : 'Execute'}
-                          </button>
+                        <p className="text-sm text-gray-400 mb-3">{strategy.description || placeholderText("No description available.")}</p>
+                        <div className="space-y-2 text-sm mb-4">
+                          <div><span className="font-semibold text-gray-300">Confidence:</span><span className={`ml-2 font-bold ${ (strategy.confidence || 0) >= 0.7 ? 'text-green-400' : (strategy.confidence || 0) >= 0.5 ? 'text-yellow-400' : 'text-red-400' }`}>{strategy.confidence !== undefined ? formatPercent(strategy.confidence) : placeholderText()}</span></div>
+                          <div><span className="font-semibold text-gray-300">Expected Return:</span><span className="ml-2 text-green-400 font-semibold">{strategy.expected_return !== undefined ? `${(strategy.expected_return * 100).toFixed(1)}%` : placeholderText()}</span></div>
+                          {strategy.timeframe && <div><span className="font-semibold text-gray-300">Timeframe:</span><span className="ml-2 text-gray-400">{strategy.timeframe}</span></div>}
+                          {(strategy.networks && strategy.networks.length > 0) ? <div><span className="font-semibold text-gray-300">Networks:</span><span className="ml-2 text-gray-400">{strategy.networks.join(', ')}</span></div> : <div><span className="font-semibold text-gray-300">Networks:</span>{placeholderText("Any")}</div>}
+                          {strategy.reasoning && <div className="mt-2 pt-2 border-t border-gray-600"><h4 className="font-semibold text-gray-300 mb-1">Reasoning:</h4><p className="text-xs text-gray-400 italic">{strategy.reasoning}</p></div>}
+                          {!strategy.reasoning && <div className="mt-2 pt-2 border-t border-gray-600"><h4 className="font-semibold text-gray-300 mb-1">Reasoning:</h4>{placeholderText("Not provided.")}</div>}
                         </div>
+                        <div className="flex justify-end items-center mt-3"><Button onClick={() => handleStrategyExecution(strategy)} disabled={loading || !isConnected} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 text-white text-sm font-medium">{loading ? 'Processing...' : 'Execute Strategy'}</Button></div>
                       </div>
                     ))
-                  ) : (
-                    // Fallback strategies if API fails
-                    <>
-                      <div className="border border-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <h3 className="font-bold text-xl">ETH Layer 2 Accumulation</h3>
-                          <span className="px-2 py-1 bg-blue-900/30 text-blue-400 rounded-full text-xs">
-                            Moderate Risk
-                          </span>
-                        </div>
-                        <p className="text-gray-400 mt-2">
-                          Accumulate ETH on Arbitrum for reduced gas fees
-                        </p>
-                        <div className="flex justify-between items-center mt-3">
-                          <div>
-                            <span className="text-sm text-gray-400">Expected Return:</span>
-                            <span className="ml-2 text-green-400">4.2%</span>
-                          </div>
-                          <button 
-                            className={`px-4 py-2 rounded text-white ${
-                              loading 
-                                ? 'bg-gray-600 cursor-not-allowed' 
-                                : 'bg-green-600 hover:bg-green-500'
-                            }`}
-                            onClick={() => handleStrategyExecution({
-                              id: 'eth-l2-accumulation',
-                              name: 'ETH Layer 2 Accumulation',
-                              description: 'Accumulate ETH on Arbitrum for reduced gas fees'
-                            })}
-                            disabled={loading}
-                          >
-                            {loading ? 'Processing...' : 'Execute'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="border border-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <h3 className="font-bold text-xl">Stablecoin Yield Strategy</h3>
-                          <span className="px-2 py-1 bg-green-900/30 text-green-400 rounded-full text-xs">
-                            Low Risk
-                          </span>
-                        </div>
-                        <p className="text-gray-400 mt-2">
-                          Generate yield on USDC via lending protocols
-                        </p>
-                        <div className="flex justify-between items-center mt-3">
-                          <div>
-                            <span className="text-sm text-gray-400">Expected Return:</span>
-                            <span className="ml-2 text-green-400">3.5%</span>
-                          </div>
-                          <button 
-                            className={`px-4 py-2 rounded text-white ${
-                              loading 
-                                ? 'bg-gray-600 cursor-not-allowed' 
-                                : 'bg-green-600 hover:bg-green-500'
-                            }`}
-                            onClick={() => handleStrategyExecution({
-                              id: 'stablecoin-yield',
-                              name: 'Stablecoin Yield Strategy',
-                              description: 'Generate yield on USDC via lending protocols'
-                            })}
-                            disabled={loading}
-                          >
-                            {loading ? 'Processing...' : 'Execute'}
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="border border-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <h3 className="font-bold text-xl">Cross-Chain Arbitrage</h3>
-                          <span className="px-2 py-1 bg-yellow-900/30 text-yellow-400 rounded-full text-xs">
-                            High Risk
-                          </span>
-                        </div>
-                        <p className="text-gray-400 mt-2">
-                          Exploit price differences across Arbitrum, Optimism, and Base
-                        </p>
-                        <div className="flex justify-between items-center mt-3">
-                          <div>
-                            <span className="text-sm text-gray-400">Expected Return:</span>
-                            <span className="ml-2 text-green-400">7.8%</span>
-                          </div>
-                          <button 
-                            className={`px-4 py-2 rounded text-white ${
-                              loading 
-                                ? 'bg-gray-600 cursor-not-allowed' 
-                                : 'bg-green-600 hover:bg-green-500'
-                            }`}
-                            onClick={() => handleStrategyExecution({
-                              id: 'cross-chain-arbitrage',
-                              name: 'Cross-Chain Arbitrage',
-                              description: 'Exploit price differences across Arbitrum, Optimism, and Base'
-                            })}
-                            disabled={loading}
-                          >
-                            {loading ? 'Processing...' : 'Execute'}
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="border border-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <h3 className="font-bold text-xl">DEX-CEX Spread Strategy</h3>
-                          <span className="px-2 py-1 bg-blue-900/30 text-blue-400 rounded-full text-xs">
-                            Moderate Risk
-                          </span>
-                        </div>
-                        <p className="text-gray-400 mt-2">
-                          Profit from temporary price discrepancies between DEXs and CEXs
-                        </p>
-                        <div className="flex justify-between items-center mt-3">
-                          <div>
-                            <span className="text-sm text-gray-400">Expected Return:</span>
-                            <span className="ml-2 text-green-400">5.1%</span>
-                          </div>
-                          <button 
-                            className={`px-4 py-2 rounded text-white ${
-                              loading 
-                                ? 'bg-gray-600 cursor-not-allowed' 
-                                : 'bg-green-600 hover:bg-green-500'
-                            }`}
-                            onClick={() => handleStrategyExecution({
-                              id: 'dex-cex-spread',
-                              name: 'DEX-CEX Spread Strategy',
-                              description: 'Profit from temporary price discrepancies between DEXs and CEXs'
-                            })}
-                            disabled={loading}
-                          >
-                            {loading ? 'Processing...' : 'Execute'}
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  ) : placeholderText("No AI strategies available at the moment. Check back later.")}
                 </div>
               </div>
             </div>
-            
-            {/* Market Analysis Section */}
+
             <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-700">
-                <h2 className="text-xl font-bold">Rehoboam Market Analysis</h2>
-              </div>
-              <div className="p-4">
-                <div className="bg-gray-700 p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-2">Current Market Sentiment</h3>
-                  <div className="flex items-center mb-4">
-                    <div className="w-full bg-gray-800 rounded-full h-4">
-                      <div 
-                        className={`h-4 rounded-full ${
-                          marketAnalysis?.sentiment > 60 ? 'bg-green-600' :
-                          marketAnalysis?.sentiment > 40 ? 'bg-yellow-600' : 'bg-red-600'
-                        }`} 
-                        style={{ width: `${marketAnalysis?.sentiment || 65}%` }}
-                      ></div>
+              <div className="p-4 border-b border-gray-700"><h2 className="text-xl font-bold text-blue-300">Rehoboam Market Intelligence ({marketAnalysis?.full_data?.token || 'ETH'} Focus)</h2></div>
+              <div className="p-6 space-y-6">
+                {marketAnalysis && marketAnalysis.full_data ? (
+                  <>
+                    <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                      <h3 className="text-lg font-semibold text-blue-400 mb-2">Overall Outlook for {marketAnalysis.full_data.token || placeholderText('ETH')}</h3>
+                      <p className="text-sm text-gray-300 mb-3 italic">{marketAnalysis.full_data.summary || placeholderText("No summary available.")}</p>
+                      {marketAnalysis.full_data.consciousness_sentiment && (
+                        <div className="mt-3 pt-3 border-t border-gray-600">
+                          <h4 className="text-md font-semibold text-purple-400 mb-1">Consciousness View:</h4>
+                          <div className="flex items-center mb-1">
+                            <div className="w-full bg-gray-600 rounded-full h-3.5">
+                              <div className={`h-3.5 rounded-full ${ (marketAnalysis.full_data.consciousness_sentiment.overall_sentiment_score || 0) * 100 > 60 ? 'bg-green-500' : (marketAnalysis.full_data.consciousness_sentiment.overall_sentiment_score || 0) * 100 > 40 ? 'bg-yellow-500' : 'bg-red-500' }`}
+                                   style={{ width: `${formatPercent(marketAnalysis.full_data.consciousness_sentiment.overall_sentiment_score)}` }}></div>
+                            </div>
+                            <span className="ml-3 text-sm text-gray-300 whitespace-nowrap">{formatScorePercent(marketAnalysis.full_data.consciousness_sentiment.overall_sentiment_score)}</span>
+                          </div>
+                          <p className="text-xs text-gray-400">Drivers: {marketAnalysis.full_data.consciousness_sentiment.emotional_drivers?.join(', ') || placeholderText()}</p>
+                        </div>
+                      )}
                     </div>
-                    <span className={`ml-4 font-bold ${
-                      marketAnalysis?.sentiment > 60 ? 'text-green-400' :
-                      marketAnalysis?.sentiment > 40 ? 'text-yellow-400' : 'text-red-400'
-                    }`}>
-                      {marketAnalysis?.sentiment > 60 ? 'Bullish' : 
-                       marketAnalysis?.sentiment > 40 ? 'Neutral' : 'Bearish'} 
-                      ({marketAnalysis?.sentiment || 65}%)
-                    </span>
-                  </div>
-                  <p className="text-gray-300">
-                    {marketAnalysis?.analysis || 
-                     'Rehoboam AI detects positive momentum on layer 2 networks, with increasing TVL on Arbitrum and Optimism. Recent price action suggests accumulation phase for ETH.'}
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div className="bg-gray-700 p-4 rounded-lg">
-                    <h3 className="font-medium mb-2">Key Insights</h3>
-                    <ul className="list-disc pl-5 text-gray-300 space-y-1">
-                      {marketAnalysis?.insights ? (
-                        marketAnalysis.insights.map((insight, index) => (
-                          <li key={index}>{insight}</li>
-                        ))
-                      ) : (
-                        <>
-                          <li>Increased institutional demand for ETH</li>
-                          <li>Growing competition among L2 solutions</li>
-                          <li>Declining gas costs improving user experience</li>
-                          <li>DeFi TVL growth signals market confidence</li>
-                        </>
-                      )}
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-gray-700 p-4 rounded-lg">
-                    <h3 className="font-medium mb-2">Recommendations</h3>
-                    <ul className="list-disc pl-5 text-gray-300 space-y-1">
-                      {marketAnalysis?.recommendations ? (
-                        marketAnalysis.recommendations.map((rec, index) => (
-                          <li key={index}>{rec}</li>
-                        ))
-                      ) : (
-                        <>
-                          <li>Focus on L2 opportunities with lower fees</li>
-                          <li>Consider stablecoin yield strategies during volatility</li>
-                          <li>Monitor cross-chain TVL for arbitrage opportunities</li>
-                          <li>Implement MEV-resistant trading strategies</li>
-                        </>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-                
-                <div className="mt-4 flex justify-end">
-                  <button 
-                    onClick={loadMarketAnalysis}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded"
-                    disabled={loading}
-                  >
-                    {loading ? 'Refreshing...' : 'Refresh Analysis'}
-                  </button>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                        <h4 className="text-md font-semibold text-blue-400 mb-2">Market Data</h4>
+                        <p className="text-sm text-gray-300"><strong>Price:</strong> ${marketAnalysis.full_data.current_price?.toLocaleString() || placeholderText()}</p>
+                        <p className="text-sm text-gray-300"><strong>Trend:</strong> {marketAnalysis.full_data.trend?.direction || placeholderText()} (Strength: {marketAnalysis.full_data.trend?.strength !== undefined ? formatPercent(marketAnalysis.full_data.trend.strength) : placeholderText()})</p>
+                        <p className="text-sm text-gray-300"><strong>Volatility:</strong> {marketAnalysis.full_data.volatility?.level || placeholderText()} ({marketAnalysis.full_data.volatility?.value || placeholderText()})</p>
+                      </div>
+                      <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                        <h4 className="text-md font-semibold text-blue-400 mb-2">Key Indicators</h4>
+                        <p className="text-sm text-gray-300"><strong>RSI:</strong> {marketAnalysis.full_data.key_indicators?.RSI || placeholderText()}</p>
+                        <p className="text-sm text-gray-300"><strong>MACD:</strong> {marketAnalysis.full_data.key_indicators?.MACD || placeholderText()}</p>
+                      </div>
+                    </div>
+                    {marketAnalysis.full_data.support_resistance && (
+                      <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                        <h4 className="text-md font-semibold text-blue-400 mb-2">Support & Resistance</h4>
+                        <div className="flex justify-around">
+                          <div><p className="text-sm text-gray-300">Support:</p><ul className="text-xs list-disc list-inside text-green-400">{(marketAnalysis.full_data.support_resistance.support || []).map((s, i) => <li key={`s-${i}`}>${s.toLocaleString()}</li>)}{!(marketAnalysis.full_data.support_resistance.support || []).length && placeholderText().props.children}</ul></div>
+                          <div><p className="text-sm text-gray-300">Resistance:</p><ul className="text-xs list-disc list-inside text-red-400">{(marketAnalysis.full_data.support_resistance.resistance || []).map((r, i) => <li key={`r-${i}`}>${r.toLocaleString()}</li>)}{!(marketAnalysis.full_data.support_resistance.resistance || []).length && placeholderText().props.children}</ul></div>
+                        </div>
+                      </div>
+                    )}
+                    {(marketAnalysis.full_data.news_sentiment || marketAnalysis.full_data.social_sentiment) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {marketAnalysis.full_data.news_sentiment && (<div className="bg-gray-700/50 p-3 rounded-lg border border-gray-600"><h4 className="text-md font-semibold text-blue-400 mb-1">News Sentiment</h4><p className="text-xs text-gray-400">Score: {formatPercent(marketAnalysis.full_data.news_sentiment.score)}</p><p className="text-xs text-gray-400 mt-1 truncate">Summary: {marketAnalysis.full_data.news_sentiment.summary || placeholderText()}</p></div>)}
+                        {marketAnalysis.full_data.social_sentiment && (<div className="bg-gray-700/50 p-3 rounded-lg border border-gray-600"><h4 className="text-md font-semibold text-blue-400 mb-1">Social Sentiment</h4><p className="text-xs text-gray-400">Score: {formatPercent(marketAnalysis.full_data.social_sentiment.score)}</p><p className="text-xs text-gray-400 mt-1 truncate">Summary: {marketAnalysis.full_data.social_sentiment.summary || placeholderText()}</p></div>)}
+                      </div>
+                    )}
+                    {marketAnalysis.full_data.onchain_analysis && (<div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600"><h4 className="text-md font-semibold text-blue-400 mb-2">On-Chain Snapshot</h4><p className="text-sm text-gray-300">Large Transactions: <span className="text-gray-400">{marketAnalysis.full_data.onchain_analysis.large_transactions || placeholderText()}</span></p><p className="text-sm text-gray-300">Exchange Flow: <span className="text-gray-400">{marketAnalysis.full_data.onchain_analysis.exchange_flow || placeholderText()}</span></p></div>)}
+                    {marketAnalysis.full_data.sources && (<div className="text-xs text-gray-500 mt-4 border-t border-gray-700 pt-2"><p>Market Analysis Source: <span className="font-semibold">{marketAnalysis.full_data.sources.market_analysis || placeholderText("Unknown")}</span></p><p>Consciousness Sentiment Source: <span className="font-semibold">{marketAnalysis.full_data.sources.consciousness_sentiment || placeholderText("Unknown")}</span></p></div>)}
+                  </>
+                ) : placeholderText(marketAnalysis?.analysis || 'Loading market analysis details...')}
+                <div className="mt-6 flex justify-end"><Button onClick={loadMarketAnalysis} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:bg-gray-500">{loading ? 'Refreshing...' : 'Refresh Analysis'}</Button></div>
               </div>
             </div>
           </div>
         )}
-
-        {activeTab === 'companions' && (
-          <div className="my-8">
-            <AICompanionCreator />
-          </div>
-        )}
-        
+        {activeTab === 'companions' && <div className="my-8"><AICompanionCreator /></div>}
         {activeTab === 'mcp' && (
           <div className="my-8">
             <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-2xl font-bold mb-2">Model Context Protocol Visualizer</h2>
-                  <p className="text-gray-400 mb-4">
-                    Monitor Rehoboam's AI function generation and execution in real-time. The MCP enables 
-                    Rehoboam to create and call specialized functions based on market conditions.
-                  </p>
+                  <p className="text-gray-400 mb-4">Monitor Rehoboam's AI function generation and execution in real-time.</p>
                 </div>
-                <div className="ml-6">
-                  <MCPStatus />
-                </div>
+                <MCPStatus />
               </div>
               <MCPFunctionVisualizer />
             </div>
           </div>
         )}
-
-        {activeTab === 'vetala' && (
-          <VetalaProtectionDashboard />
-        )}
-
-        {activeTab === 'flash-arbitrage' && (
-          <div className="my-8">
-            <ProfitableFlashArbitrage />
-          </div>
-        )}
-        {activeTab === 'consciousness' && (
-          <div className="my-8">
-            <ConsciousnessDisplay />
-          </div>
-        )}
+        {activeTab === 'vetala' && <VetalaProtectionDashboard />}
+        {activeTab === 'flash-arbitrage' && <div className="my-8"><ProfitableFlashArbitrage /></div>}
+        {activeTab === 'consciousness' && <div className="my-8"><ConsciousnessDisplay /></div>}
       </main>
     </div>
   );
