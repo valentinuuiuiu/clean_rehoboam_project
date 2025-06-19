@@ -33,7 +33,14 @@ class MCPAuthenticator:
         self.api_token = API_TOKEN
         
     def verify_simple_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Verify a simple token and return basic payload."""
+        """
+        Verify a simple token and return basic payload.
+        NOTE: This method performs a direct string comparison against self.api_token
+        and self.mcp_token. It does not perform cryptographic JWT validation,
+        even though it might be used by dependencies (like verify_jwt_dependency)
+        that are integrated with JWT-expecting mechanisms (e.g., HTTPBearer).
+        This is a simplified token check.
+        """
         try:
             # For now, use simple token validation
             if secrets.compare_digest(token, self.api_token) or secrets.compare_digest(token, self.mcp_token):
@@ -57,7 +64,11 @@ class MCPAuthenticator:
         return secrets.compare_digest(token, self.api_token)
     
     def generate_mcp_session_token(self, user_id: str, duration_hours: int = 24) -> str:
-        """Generate a session token for MCP access."""
+        """
+        Generate a session token for MCP access.
+        NOTE: This method generates a simple base64 encoded token based on user_id,
+        timestamp, and duration. It is NOT a cryptographically signed JWT.
+        """
         # Simple token generation for now
         timestamp = str(int(time.time()))
         token_data = f"{user_id}:{timestamp}:{duration_hours}"
@@ -68,7 +79,12 @@ mcp_auth = MCPAuthenticator()
 
 # FastAPI Dependencies
 async def verify_jwt_dependency(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
-    """FastAPI dependency for token verification."""
+    """
+    FastAPI dependency for token verification.
+    NOTE: This dependency relies on `mcp_auth.verify_simple_token` for actual validation.
+    Therefore, it currently verifies tokens via direct string comparison rather than
+    standard JWT cryptographic signature validation, despite using HTTPBearer.
+    """
     payload = mcp_auth.verify_simple_token(credentials.credentials)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")

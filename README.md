@@ -8,8 +8,20 @@ This project represents a revolutionary integration of AI consciousness with aut
 
 **🎉 LATEST UPDATE**: Complete consciousness integration with arbitrage bots - transforming simple automation into intelligent, ethical AI-driven trading!
 
+## System Architecture
+
+The Rehoboam platform is built around a central FastAPI backend application (`api_server.py`) that serves as the primary interface for user interactions and core trading logic. This backend is complemented by the **Model Context Protocol (MCP)** system, a suite of specialized microservices (e.g., `mcp-registry`, `mcp-consciousness-layer`, `mcp-market-analyzer`) defined in `docker-compose.yml`.
+
+The FastAPI server (`api_server.py`) interacts with these MCP services to leverage advanced AI capabilities. It discovers and communicates with them primarily through the `mcp-registry`, allowing for a modular and extensible AI architecture. The frontend React application interacts with the FastAPI backend.
+
 ## Features
 
+- **Rehoboam Consciousness**: The core AI's advanced state, emotional analysis, and decision-making framework. Primarily delivered via the `mcp-consciousness-layer` service, its insights are accessible through endpoints like `/api/ai/consciousness-state` and visualized in a dedicated UI tab.
+- **Model Context Protocol (MCP)**: An advanced system enabling dynamic AI function generation, registration, and execution. Core AI capabilities like sophisticated market analysis and consciousness processing are often delivered as MCP services. The MCP system can be monitored via `/api/mcp` endpoints and the "MCP Visualizer" tab in the UI.
+  > **Note**: When an MCP service is unavailable, the main API server (`api_server.py`) often falls back to locally implemented Rehoboam functions where available.
+- **AI Companions**: Interactive AI personalities offering unique insights and engagement, accessible via the `/api/companions` backend and a dedicated "AI Companions" UI tab.
+- **AI Smart Contract Auditor (T2L-Inspired)**: Utilizes a T2L-inspired mechanism with Gemini 1.5 Flash (via OpenRouter) to audit Solidity smart contracts. Users provide contract code and a natural language task description (e.g., "check for reentrancy"). The system (conceptually) tailors its analysis based on the task. The LoRA generation aspect is currently simulated, but the LLM interaction for auditing is functional. Requires `OPENROUTER_API_KEY` in `.env`. (See API endpoint `/api/audit/contract`).
+- **L2 Arbitrage Bot (Real Execution)**: See dedicated section below.
 - Multi-wallet support (MetaMask and Talisman)
 - Multi-chain compatibility (Ethereum, Arbitrum, Optimism, Polygon, Base, and more)
 - Real-time price feeds and market data
@@ -20,10 +32,85 @@ This project represents a revolutionary integration of AI consciousness with aut
 - Layer 2 network support with gas estimation and optimization
 - Cross-chain arbitrage detection
 - Blockchain analysis tools (wallet behavior, MEV detection, contract security)
-- AI Companions for interactive experiences
-- Model Context Protocol (MCP) integration for dynamic function execution  
-  > **Note**: When the MCP service is unavailable, the system automatically falls back to native Rehoboam functions.
 - Web interface with React and TypeScript
+
+## 🤖 L2 Arbitrage Bot (Real Execution)
+
+The Rehoboam platform includes an advanced Layer 2 (L2) Arbitrage Bot capable of identifying and executing arbitrage opportunities across different L2 networks and DEXs. This feature is currently experimental and intended for **TESTNET USE ONLY**.
+
+### Key Components
+
+-   **`utils.l2_manager.L2Manager`**: The primary class for interacting with L2 networks, including sending transactions and estimating gas.
+-   **`utils.l2_manager.L2ArbitrageHelper`**: Works in conjunction with `L2Manager` to:
+    -   Scan for potential arbitrage opportunities based on configured DEXs and token pairs.
+    -   Utilize `get_real_dex_price` to fetch prices. Currently, this method has a more realistic implementation for Uniswap V2 compatible DEXs on networks like Arbitrum Sepolia (specifically for WETH/USDC pairs) and uses simulated prices for other pairs/DEXs as placeholders.
+    -   Orchestrate the buy and sell legs of an identified arbitrage opportunity via `_execute_arbitrage_trade`, which uses `L2Manager.execute_dex_swap` for on-chain transactions.
+
+### Configuration Requirements
+
+To enable and configure the L2 Arbitrage Bot for execution, the following are essential:
+
+1.  **Environment Variables**: Set these in your `.env` file:
+    *   `L2_EXECUTION_WALLET_ADDRESS`: The public address of the wallet to be used for trading.
+    *   `L2_EXECUTION_PRIVATE_KEY`: **(EXTREMELY SENSITIVE)** The private key for the execution wallet.
+    *   `L2_ENABLE_REAL_TRADING="true"`: Must be set to `"true"` to allow the bot to attempt real transactions. Defaults to `false`.
+    *   `L2_DEFAULT_SLIPPAGE="0.005"`: Default slippage tolerance for DEX swaps (e.g., 0.005 for 0.5%).
+    *   `L2_DEFAULT_TRADE_AMOUNT_USD="10"`: The approximate USD value for trades initiated by the bot (e.g., "10" for $10).
+    *   `L2_BOT_MAX_GAS_PRICE_GWEI="100"`: Maximum gas price (in Gwei) the bot will use for transactions. Transactions will be aborted if current network gas exceeds this.
+    *   Ensure relevant RPC URLs are also set (e.g., `ARBITRUM_SEPOLIA_RPC_URL`, `POLYGON_MUMBAI_RPC_URL`).
+
+2.  **DEX Configuration File (`config/l2_dex_config.json`)**:
+    This JSON file defines the L2 networks, DEXs, and tokens the bot will operate with.
+    Example structure:
+    ```json
+    {
+        "arbitrum_sepolia": {
+            "dexs": {
+                "sushiswap_test": {
+                    "router_address": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+                    "type": "uniswap_v2"
+                }
+            },
+            "tokens": {
+                "WETH": {"address": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73", "decimals": 18},
+                "USDC": {"address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", "decimals": 6}
+            }
+        },
+        "polygon_mumbai": {
+            "dexs": {
+                 "quickswap_test": {
+                    "router_address": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
+                    "type": "uniswap_v2"
+                 }
+            },
+            "tokens": { // Ensure these are testnet addresses
+                "WMATIC": {"address": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889", "decimals": 18},
+                "USDC": {"address": "0x0FA8781a83E46826621b3BC094Ea2A0212e71B23", "decimals": 6}
+            }
+        }
+    }
+    ```
+
+### How to Run (Conceptual for Testnet)
+
+1.  Ensure all environment variables listed above are correctly set in your `.env` file.
+2.  Create and populate `config/l2_dex_config.json` with the desired testnet networks, DEXs, and token details.
+3.  The core scanning logic is in `L2ArbitrageHelper.scan_multichain_opportunities()`.
+4.  The `if __name__ == '__main__':` block in `utils/l2_manager.py` provides an example of how to instantiate `L2Manager` (which in turn instantiates `L2ArbitrageHelper`) and run the scanner. This block can be adapted or executed directly (e.g., `python -m utils.l2_manager`) after setting up your environment.
+5.  **ALWAYS START WITH TESTNETS AND TEST TOKENS.**
+
+---
+
+> **🛑 CRITICAL WARNINGS AND DISCLAIMERS 🛑**
+>
+> *   **RISK OF FINANCIAL LOSS**: AUTOMATED TRADING WITH REAL FUNDS, EVEN ON TESTNETS IF CONFIGURATIONS ARE MISTAKENLY POINTED TO MAINNETS OR IF REAL PRIVATE KEYS ARE USED, IS EXTREMELY RISKY. YOU COULD LOSE ALL YOUR CAPITAL. PROCEED WITH EXTREME CAUTION.
+> *   **EXPERIMENTAL SOFTWARE**: THIS IS EXPERIMENTAL, RESEARCH-GRADE SOFTWARE. IT HAS NOT BEEN PROFESSIONALLY AUDITED FOR SECURITY OR FINANCIAL SOUNDNESS. USE AT YOUR OWN ABSOLUTE RISK.
+> *   **TESTNET ONLY**: IT IS STRONGLY ADVISED TO USE THIS SOFTWARE **EXCLUSIVELY ON TESTNETS WITH VALUELESS TEST TOKENS** UNTIL YOU HAVE THOROUGHLY TESTED, UNDERSTOOD, AND AUDITED THE CODE YOURSELF OR VIA A PROFESSIONAL.
+> *   **SECURITY OF PRIVATE KEYS**: PROVIDING A PRIVATE KEY TO ANY SOFTWARE, INCLUDING THIS ONE (VIA `L2_EXECUTION_PRIVATE_KEY`), CARRIES INHERENT AND SIGNIFICANT SECURITY RISKS. ENSURE THE ENVIRONMENT WHERE THE SOFTWARE RUNS IS SECURE. CONSIDER USING DEDICATED, LOW-VALUE HOT WALLETS FOR TESTING IF YOU PROCEED BEYOND SIMULATION.
+> *   **NO GUARANTEE OF PROFIT**: ARBITRAGE OPPORTUNITIES IDENTIFIED BY THE BOT ARE NOT GUARANTEED TO BE PROFITABLE. FACTORS SUCH AS NETWORK LATENCY, SLIPPAGE, GAS FEES, AND SUDDEN MARKET VOLATILITY CAN NEGATIVELY IMPACT OR ELIMINATE POTENTIAL PROFITS. THE BOT'S CURRENT PRICE FETCHING FOR MANY PAIRS IS SIMULATED.
+> *   **CONFIGURATION ERRORS**: MISTAKES IN CONFIGURING NETWORK RPC URLS, DEX ROUTER ADDRESSES, TOKEN ADDRESSES, OR DECIMALS CAN LEAD TO FAILED TRANSACTIONS OR LOSS OF FUNDS. DOUBLE-CHECK ALL CONFIGURATIONS.
+
+---
 
 ## Prerequisites
 
@@ -35,7 +122,8 @@ This project represents a revolutionary integration of AI consciousness with aut
   - `OPENAI_API_KEY`
   - `DEEPSEEK_API_KEY`
   - `ETHERSCAN_API_KEY`
-  - Optional: `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `CHAINLINK_API_KEY`, `COINGECKO_API_KEY`, etc.
+  - `OPENROUTER_API_KEY` (Required for AI Contract Auditor)
+  - Optional: `GEMINI_API_KEY`, `CHAINLINK_API_KEY`, `COINGECKO_API_KEY`, etc.
 - PostgreSQL database (optional, configured for Docker setup)
 - Docker and Docker Compose (for full environment including MCP services)
 
@@ -49,16 +137,23 @@ The platform requires RPC endpoints for blockchain access. Configure these in yo
 - `ARBITRUM_RPC_URL`: Arbitrum One RPC
 - `OPTIMISM_RPC_URL`: Optimism Mainnet RPC
 - `BSC_RPC_URL`: Binance Smart Chain RPC
+- `ARBITRUM_SEPOLIA_RPC_URL`: Arbitrum Sepolia Testnet RPC (Example for L2 Bot)
+- `POLYGON_MUMBAI_RPC_URL`: Polygon Mumbai Testnet RPC (Example for L2 Bot)
+
 
 ### Wallet Security
 - `WALLET_ENCRYPTION_KEY`: Encryption key for wallet security
-- `HOT_WALLET_PRIVATE_KEY`: Private key for hot wallet (development only)
+- `HOT_WALLET_PRIVATE_KEY`: Private key for hot wallet (development only, **NEVER USE FOR REAL FUNDS YOU AREN'T WILLING TO LOSE**)
 - `COLD_WALLET_ADDRESS`: Address for cold storage
+
+### L2 Arbitrage Bot Execution Wallet
+- `L2_EXECUTION_WALLET_ADDRESS`: Public address for L2 arbitrage bot trades.
+- `L2_EXECUTION_PRIVATE_KEY`: **(EXTREMELY SENSITIVE)** Private key for L2 arbitrage bot trades. **USE A DEDICATED TESTNET WALLET ONLY.**
 
 ### Security Notes
 1. Never commit real private keys to source control
 2. Use hardware wallets for production deployments
-3. Configure proper gas limits (`MAX_GAS_PRICE_GWEI`)
+3. Configure proper gas limits (`MAX_GAS_PRICE_GWEI`, `L2_BOT_MAX_GAS_PRICE_GWEI`)
 4. Enable all security middleware in production
 
 ## Web3 API Endpoints
@@ -90,9 +185,19 @@ The following endpoints are available for direct Web3 interactions:
 3.  Key Environment Variables (see `.env.example` for a full list):
     -   `ALCHEMY_API_KEY` or `INFURA_PROJECT_ID`: For Web3 RPC connections.
     -   `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`: For AI features.
+    -   `OPENROUTER_API_KEY`: **Required for the AI Smart Contract Auditor feature.**
     -   `ETHERSCAN_API_KEY`: For blockchain analysis.
     -   `DATABASE_URL`: For PostgreSQL connection (used in Docker setup).
     -   `JWT_SECRET`: A secure secret key for JWT authentication.
+    -   **For L2 Arbitrage Bot (Real Execution)**:
+        -   `L2_EXECUTION_WALLET_ADDRESS`
+        -   `L2_EXECUTION_PRIVATE_KEY` (**HANDLE WITH EXTREME CARE**)
+        -   `L2_ENABLE_REAL_TRADING`
+        -   `L2_DEFAULT_SLIPPAGE`
+        -   `L2_DEFAULT_TRADE_AMOUNT_USD`
+        -   `L2_BOT_MAX_GAS_PRICE_GWEI`
+        -   And corresponding testnet RPC URLs like `ARBITRUM_SEPOLIA_RPC_URL`.
+
 
 ## Quick Start (Local Development)
 
@@ -101,19 +206,28 @@ The following endpoints are available for direct Web3 interactions:
     npm install
     pip install -r requirements.txt
     ```
-2.  Ensure your `.env` file is configured with necessary API keys (e.g., `ALCHEMY_API_KEY`, `OPENAI_API_KEY`).
+2.  Ensure your `.env` file is configured with necessary API keys (e.g., `ALCHEMY_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`).
 3.  Start the development servers (frontend and backend FastAPI API):
     ```bash
     npm run dev
     ```
     This will start:
     - Frontend (Vite): `http://localhost:5001` (or as configured by Vite)
-    - Backend API (FastAPI): `http://localhost:5002`
+    - Backend API (FastAPI): `http://localhost:5002` (Main application backend)
 
-For the full platform experience including MCP services, database, and monitoring, use Docker Compose:
+### Running with Docker (Full System - Recommended)
+
+The primary and recommended way to run the entire Rehoboam platform (including the FastAPI backend, React frontend, all MCP microservices, and PostgreSQL database) is by using Docker Compose:
+
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
+After running, the services will be available at:
+- **React Frontend**: `http://localhost:5001`
+- **FastAPI Backend**: `http://localhost:5002`
+- **MCP Registry**: `http://localhost:3001` (and other MCP services as per `docker-compose.yml`)
+
+This setup ensures all components are correctly networked and configured.
 
 ## API Endpoints
 
@@ -148,8 +262,10 @@ The main API is served by `api_server.py` and runs on port 5002.
 
 -   `POST /api/trading/execute`: Execute a trade.
     -   Body: `{action, token, network, amount, slippage, wallet}`
--   `GET /api/trading/strategies`: Get AI-generated trading strategies.
+-   `GET /api/trading/strategies`: Get AI-generated trading strategies, primarily sourced from MCP services with local fallbacks.
     -   Query params: `token`, `risk_profile`
+-   `POST /api/trading/execute-strategy`: Placeholder to acknowledge requests for executing a pre-defined strategy by ID.
+    -   Body: `{ strategyId, wallet, network }`
 -   `GET /api/trading/positions`: (To be implemented or verified)
 -   `GET /api/trading/history`: (To be implemented or verified)
 
@@ -182,15 +298,26 @@ The main API is served by `api_server.py` and runs on port 5002.
 -   `GET /api/chains/liquidity/{token}`: (To be implemented or verified)
 -   `POST /api/chains/bridge`: (To be implemented or verified)
 
-### Rehoboam AI Analysis
+### AI Services & MCP
 
--   `GET /api/ai/emotions`: Get market emotional state analysis from Rehoboam.
--   `GET /api/ai/consciousness-state`: Get the current state of Rehoboam's consciousness layers.
--   `POST /api/ai/reason`: Use Rehoboam's advanced multi-model reasoning capabilities.
-    -   Query params: `prompt`, `task_type`, `complexity`
--   `GET /api/ai/market-intelligence/{token}`: Get comprehensive market intelligence for a token. (Covers old `/api/ai/sentiment`)
--   `POST /api/ai/mcp-function`: Execute a registered MCP function.
-    -   Query params: `function_name`, `parameters` (body)
+-   `GET /api/ai/consciousness-state`: Get the current state of Rehoboam's consciousness, primarily sourced from the `mcp-consciousness-layer` via `api_mcp.py`.
+-   `GET /api/ai/emotions`: Get general market emotional state, typically from the `mcp-consciousness-layer`.
+-   `GET /api/ai/market-intelligence/{token}`: Get comprehensive market intelligence for a token, using MCP services for analysis and sentiment where available.
+-   `POST /api/ai/reason`: Use advanced multi-model reasoning capabilities, prioritizing MCP reasoning services.
+    -   Body: `prompt`, `task_type`, `complexity`.
+-   `POST /api/ai/mcp-function`: Execute a function through the local `EnhancedMCPSpecialist` (which acts as a proxy or simulation for direct MCP function calls).
+    -   Body: `function_name`, `parameters`
+-   **`POST /api/audit/contract`**: Performs an AI-driven audit of provided Solidity contract code.
+    -   **Request Body**:
+        -   `contract_code: Optional[str]`: Full Solidity code of the contract.
+        -   `contract_address: Optional[str]`: Address of a deployed contract (feature to fetch code by address is a TODO).
+        -   `network_name: Optional[str]`: Network for address-based fetching (e.g., 'ethereum').
+        -   `audit_task_description: str`: Natural language description of the audit focus (e.g., "Check for reentrancy vulnerabilities", "Analyze gas usage patterns").
+    -   **Response**: Returns a JSON object with `status`, `audit_task`, and `audit_result` (containing detailed findings from the T2L Auditor Engine).
+    -   **Note**: Requires `OPENROUTER_API_KEY` to be set in the `.env` file.
+-   `GET /api/mcp/status`: Get the status of connected MCP services (as reported by `api_mcp.py`).
+-   `GET /api/mcp/functions`: Get list of registered MCP functions (from `mcp-registry` via `api_mcp.py`).
+-   `GET /api/mcp/function-calls`: Get recent MCP function call history.
 -   `GET /api/ai/prediction/{token}`: (To be implemented or verified)
 -   `GET /api/ai/regime`: (To be implemented or verified)
 
@@ -222,11 +349,11 @@ The main API is served by `api_server.py` and runs on port 5002.
 
 -   Endpoints for managing and visualizing MCP functions are available under the `/mcp` prefix (e.g., `/mcp/functions`, `/mcp/ws`). These are defined in [`api_mcp.py`](api_mcp.py:1).
 
-### System Management (Legacy/Review Needed)
+### System Management (Legacy/Deprecated)
 
--   `GET /api/system/status`: (Functionality covered by `/health` on the FastAPI server)
--   `GET /api/system/logs`: (To be implemented or verified)
--   `POST /api/system/config`: (To be implemented or verified)
+-   `GET /api/system/status`: Deprecated. Use `/health` on the FastAPI server.
+-   `GET /api/system/logs`: Deprecated. Container logs (e.g., via `docker-compose logs api`) should be used.
+-   `POST /api/system/config`: Deprecated. Configuration is managed via `.env` files and MCP service configurations.
 
 ### Example Response Format
 ```json
@@ -483,9 +610,9 @@ export const Portfolio = () => {
 
 1.  **API Endpoint Coverage:** Some API endpoints listed in previous versions of this README (e.g., detailed trading history, specific chart data, logout) are not yet fully implemented or verified in the primary FastAPI server ([`api_server.py`](api_server.py:1)).
 2.  **Authentication Implementation:** Authentication endpoints (`/api/auth/login`, `/api/auth/register`) are currently placeholders and require full implementation with secure credential handling and session management.
-3.  **Environment Variables:** Ensure all required API keys and secrets (e.g., `JWT_SECRET`) are correctly configured in `.env`.
+3.  **Environment Variables:** Ensure all required API keys and secrets (e.g., `JWT_SECRET`, `OPENROUTER_API_KEY`) are correctly configured in `.env`.
 4.  **Wallet Integration:** Frontend error handling for wallet connection failures and chain switching needs to be robust.
-5.  **Flask Application:** The role of the auxiliary Flask application ([`run.py`](run.py:1), `trading_platform/`) needs clarification, as local development now defaults to the FastAPI server. It might be deprecated or its unique functionalities migrated.
+5.  **Flask Application (Deprecated):** The Flask application ([`run.py`](run.py:1), `trading_platform/`) is deprecated. Its functionalities have largely been integrated into the FastAPI application or are no longer maintained. Users and developers should focus on the FastAPI backend (`api_server.py`) as the primary and current application.
 
 ## To-Do
 
@@ -498,6 +625,8 @@ export const Portfolio = () => {
     -   Remove Flask-related dependencies if fully consolidated.
 3.  **Documentation**:
     -   Keep this API documentation (`README.md`) fully synchronized with `api_server.py`.
+    *   Add documentation for the new AI Contract Auditor feature and its API endpoint.
+    *   Clearly state the `OPENROUTER_API_KEY` requirement for the auditor.
     -   Improve inline code documentation across frontend and backend.
     -   Add detailed architecture diagrams.
 4.  **Frontend Enhancements**:
@@ -506,5 +635,9 @@ export const Portfolio = () => {
     -   Add support for more wallets (e.g., WalletConnect).
 5.  **Testing**:
     -   Expand unit, integration, and end-to-end test coverage for both frontend and backend.
+
+### Deprecated Features
+
+*   **Flask Application (`run.py`, `trading_platform/` directory):** The Flask-based application previously included in this repository is now considered deprecated. It is not part of the main Dockerized deployment, and its functionalities have either been integrated into the FastAPI application or are no longer actively maintained. The primary backend service is the FastAPI application found in `api_server.py`. All new development and usage should focus on the FastAPI application.
 
 See [`USAGE.md`](USAGE.md:1) for detailed usage instructions.

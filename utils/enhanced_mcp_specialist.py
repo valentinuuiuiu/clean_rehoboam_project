@@ -31,12 +31,15 @@ except ImportError:
     WEB3_AVAILABLE = False
     Web3 = None
 
+import httpx # Added
+from .mcp_clients import _get_service_url_from_registry, MCP_REGISTRY_URL # Added, assuming mcp_clients is in the same directory or Python path is set up
+
 # Import our existing modules
-from utils.mcp_specialist import MCPSpecialist, MCPFunction
+from utils.mcp_specialist import MCPSpecialist, MCPFunction # MCPSpecialist might be less relevant if execute_function is fully external
 from utils.rehoboam_ai import RehoboamAI
 
 # User's MetaMask wallet address for MCP operations
-USER_WALLET_ADDRESS = os.getenv('USER_WALLET_ADDRESS', '0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8')
+USER_WALLET_ADDRESS = os.getenv('USER_WALLET_ADDRESS', '0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8') # This might be less relevant if specialist is just a proxy
 
 # Import MCP Visualization if available
 VISUALIZATION_AVAILABLE = False
@@ -132,22 +135,87 @@ class EnhancedMCPSpecialist(MCPSpecialist):
     
     def __init__(self, rehoboam: RehoboamAI, config: Dict[str, Any] = None):
         """Initialize the Enhanced MCP Specialist with extended capabilities."""
-        super().__init__(rehoboam)
+        super().__init__(rehoboam) # May need to reconsider if MCPSpecialist's function registry is used
         
         self.config = config or {}
-        # User's MetaMask wallet for personalized analysis
-        self.user_wallet = "0x9b9C9e713d8EFf874fACA1f1CCf0cfee7d631Ae8"
+        self.rehoboam_ai = rehoboam # Keeping for potential local fallbacks or complex orchestrations
+        self.client = httpx.AsyncClient(timeout=20.0) # Increased timeout for external calls
+
+        # The local resource/function registry might become less relevant if all execution is external
         self.resource_templates = {}
         self.subscriptions = set()
         self.resources = {}
-        self.reasoning = SimpleReasoning()
+        self.reasoning = SimpleReasoning() # This might be replaced by calls to an MCP Reasoning service
         
-        # Initialize enhanced capabilities
+        # Initialize enhanced capabilities - this registers local functions.
+        # If execute_function primarily calls external MCP services,
+        # the role of these locally registered functions changes.
         self._init_enhanced_capabilities()
-        
+        logger.info("EnhancedMCPSpecialist initialized. It will attempt to use MCP services for execute_function.")
+
+    async def execute_function(self, target_mcp_service_name: str, parameters: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Executes a function by identifying the target MCP service, finding its URL via
+        the registry, and then calling the specified 'mcp_action' on that service.
+        """
+        logger.info(f"Attempting to execute MCP function via service proxy: Target Service='{target_mcp_service_name}', Params='{parameters}'")
+
+        mcp_action = parameters.pop('mcp_action', None)
+        if not mcp_action:
+            logger.error(f"Missing 'mcp_action' in parameters for target service '{target_mcp_service_name}'. Cannot determine endpoint.")
+            return None
+
+        # The remaining items in 'parameters' are the payload for the target service's action
+        action_payload = parameters
+
+        log_service_prefix = f"Target MCP Service '{target_mcp_service_name}' for action '{mcp_action}'"
+
+        try:
+            service_url = await _get_service_url_from_registry(self.client, [target_mcp_service_name], log_service_prefix)
+
+            if not service_url:
+                logger.error(f"Could not find URL for service '{target_mcp_service_name}' in MCP Registry.")
+                return None
+
+            # Construct the endpoint path. Ensure it starts with a single slash.
+            endpoint_path = f"/{mcp_action.strip('/')}"
+            full_target_url = f"{service_url.rstrip('/')}{endpoint_path}"
+
+            logger.info(f"Proxying action '{mcp_action}' to {full_target_url} with payload: {action_payload}")
+
+            # Assuming POST for most actions. GET could be an option if payload is empty and mcp_action implies it.
+            response = await self.client.post(full_target_url, json=action_payload)
+            response.raise_for_status()  # Raise HTTPStatusError for bad responses (4xx or 5xx)
+
+            mcp_response_data = response.json()
+
+            if not isinstance(mcp_response_data, dict):
+                logger.warning(f"Unexpected data format from {log_service_prefix} at {full_target_url}. Expected dict, got {type(mcp_response_data)}.")
+            else:
+                logger.info(f"Successfully executed action '{mcp_action}' on service '{target_mcp_service_name}'. Response: {mcp_response_data}")
+
+            return mcp_response_data
+
+        except httpx.TimeoutException:
+            logger.error(f"Timeout during request to {log_service_prefix} (URL: {full_target_url if 'full_target_url' in locals() else 'N/A'}).")
+            return None
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error {e.response.status_code} from {log_service_prefix} at {e.request.url}: {e.response.text}")
+            return None
+        except httpx.RequestError as e:
+            logger.error(f"Network error while calling {log_service_prefix} at {e.request.url if e.request else 'N/A'}: {e}")
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON response from {log_service_prefix} (URL: {full_target_url if 'full_target_url' in locals() else 'N/A'}): {e}")
+            return None
+        except Exception as e:
+            logger.error(f"An unexpected error occurred in execute_function for {target_mcp_service_name}/{mcp_action}: {e}")
+            logger.debug(traceback.format_exc())
+            return None
+
     def register_mcp_function(self, name: str, func: Callable, description: str = "", mcp_type: str = "processor") -> 'MCPFunction':
         """
-        Register an MCP function with API tracking.
+        Register an MCP function with API tracking. (Primarily for local/simulated functions if any)
         
         This overrides the base register_mcp_function method to add integration with the 
         MCP visualization system.
