@@ -20,6 +20,7 @@ The FastAPI server (`api_server.py`) interacts with these MCP services to levera
 - **Model Context Protocol (MCP)**: An advanced system enabling dynamic AI function generation, registration, and execution. Core AI capabilities like sophisticated market analysis and consciousness processing are often delivered as MCP services. The MCP system can be monitored via `/api/mcp` endpoints and the "MCP Visualizer" tab in the UI.
   > **Note**: When an MCP service is unavailable, the main API server (`api_server.py`) often falls back to locally implemented Rehoboam functions where available.
 - **AI Companions**: Interactive AI personalities offering unique insights and engagement, accessible via the `/api/companions` backend and a dedicated "AI Companions" UI tab.
+- **AI Smart Contract Auditor (T2L-Inspired)**: Utilizes a T2L-inspired mechanism with Gemini 1.5 Flash (via OpenRouter) to audit Solidity smart contracts. Users provide contract code and a natural language task description (e.g., "check for reentrancy"). The system (conceptually) tailors its analysis based on the task. The LoRA generation aspect is currently simulated, but the LLM interaction for auditing is functional. Requires `OPENROUTER_API_KEY` in `.env`. (See API endpoint `/api/audit/contract`).
 - Multi-wallet support (MetaMask and Talisman)
 - Multi-chain compatibility (Ethereum, Arbitrum, Optimism, Polygon, Base, and more)
 - Real-time price feeds and market data
@@ -30,9 +31,6 @@ The FastAPI server (`api_server.py`) interacts with these MCP services to levera
 - Layer 2 network support with gas estimation and optimization
 - Cross-chain arbitrage detection
 - Blockchain analysis tools (wallet behavior, MEV detection, contract security)
-- AI Companions for interactive experiences
-- Model Context Protocol (MCP) integration for dynamic function execution  
-  > **Note**: When the MCP service is unavailable, the system automatically falls back to native Rehoboam functions.
 - Web interface with React and TypeScript
 
 ## Prerequisites
@@ -45,7 +43,8 @@ The FastAPI server (`api_server.py`) interacts with these MCP services to levera
   - `OPENAI_API_KEY`
   - `DEEPSEEK_API_KEY`
   - `ETHERSCAN_API_KEY`
-  - Optional: `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `CHAINLINK_API_KEY`, `COINGECKO_API_KEY`, etc.
+  - `OPENROUTER_API_KEY` (Required for AI Contract Auditor)
+  - Optional: `GEMINI_API_KEY`, `CHAINLINK_API_KEY`, `COINGECKO_API_KEY`, etc.
 - PostgreSQL database (optional, configured for Docker setup)
 - Docker and Docker Compose (for full environment including MCP services)
 
@@ -100,6 +99,7 @@ The following endpoints are available for direct Web3 interactions:
 3.  Key Environment Variables (see `.env.example` for a full list):
     -   `ALCHEMY_API_KEY` or `INFURA_PROJECT_ID`: For Web3 RPC connections.
     -   `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`: For AI features.
+    -   `OPENROUTER_API_KEY`: **Required for the AI Smart Contract Auditor feature.**
     -   `ETHERSCAN_API_KEY`: For blockchain analysis.
     -   `DATABASE_URL`: For PostgreSQL connection (used in Docker setup).
     -   `JWT_SECRET`: A secure secret key for JWT authentication.
@@ -111,7 +111,7 @@ The following endpoints are available for direct Web3 interactions:
     npm install
     pip install -r requirements.txt
     ```
-2.  Ensure your `.env` file is configured with necessary API keys (e.g., `ALCHEMY_API_KEY`, `OPENAI_API_KEY`).
+2.  Ensure your `.env` file is configured with necessary API keys (e.g., `ALCHEMY_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`).
 3.  Start the development servers (frontend and backend FastAPI API):
     ```bash
     npm run dev
@@ -203,15 +203,23 @@ The main API is served by `api_server.py` and runs on port 5002.
 -   `GET /api/chains/liquidity/{token}`: (To be implemented or verified)
 -   `POST /api/chains/bridge`: (To be implemented or verified)
 
-### Rehoboam AI Analysis & MCP Endpoints
+### AI Services & MCP
 
 -   `GET /api/ai/consciousness-state`: Get the current state of Rehoboam's consciousness, primarily sourced from the `mcp-consciousness-layer` via `api_mcp.py`.
 -   `GET /api/ai/emotions`: Get general market emotional state, typically from the `mcp-consciousness-layer`.
 -   `GET /api/ai/market-intelligence/{token}`: Get comprehensive market intelligence for a token, using MCP services for analysis and sentiment where available.
 -   `POST /api/ai/reason`: Use advanced multi-model reasoning capabilities, prioritizing MCP reasoning services.
-    -   Body: `prompt`, `task_type`, `complexity` (Note: previous README said query params, but POST usually means body).
+    -   Body: `prompt`, `task_type`, `complexity`.
 -   `POST /api/ai/mcp-function`: Execute a function through the local `EnhancedMCPSpecialist` (which acts as a proxy or simulation for direct MCP function calls).
     -   Body: `function_name`, `parameters`
+-   **`POST /api/audit/contract`**: Performs an AI-driven audit of provided Solidity contract code.
+    -   **Request Body**:
+        -   `contract_code: Optional[str]`: Full Solidity code of the contract.
+        -   `contract_address: Optional[str]`: Address of a deployed contract (feature to fetch code by address is a TODO).
+        -   `network_name: Optional[str]`: Network for address-based fetching (e.g., 'ethereum').
+        -   `audit_task_description: str`: Natural language description of the audit focus (e.g., "Check for reentrancy vulnerabilities", "Analyze gas usage patterns").
+    -   **Response**: Returns a JSON object with `status`, `audit_task`, and `audit_result` (containing detailed findings from the T2L Auditor Engine).
+    -   **Note**: Requires `OPENROUTER_API_KEY` to be set in the `.env` file.
 -   `GET /api/mcp/status`: Get the status of connected MCP services (as reported by `api_mcp.py`).
 -   `GET /api/mcp/functions`: Get list of registered MCP functions (from `mcp-registry` via `api_mcp.py`).
 -   `GET /api/mcp/function-calls`: Get recent MCP function call history.
@@ -507,7 +515,7 @@ export const Portfolio = () => {
 
 1.  **API Endpoint Coverage:** Some API endpoints listed in previous versions of this README (e.g., detailed trading history, specific chart data, logout) are not yet fully implemented or verified in the primary FastAPI server ([`api_server.py`](api_server.py:1)).
 2.  **Authentication Implementation:** Authentication endpoints (`/api/auth/login`, `/api/auth/register`) are currently placeholders and require full implementation with secure credential handling and session management.
-3.  **Environment Variables:** Ensure all required API keys and secrets (e.g., `JWT_SECRET`) are correctly configured in `.env`.
+3.  **Environment Variables:** Ensure all required API keys and secrets (e.g., `JWT_SECRET`, `OPENROUTER_API_KEY`) are correctly configured in `.env`.
 4.  **Wallet Integration:** Frontend error handling for wallet connection failures and chain switching needs to be robust.
 5.  **Flask Application (Deprecated):** The Flask application ([`run.py`](run.py:1), `trading_platform/`) is deprecated. Its functionalities have largely been integrated into the FastAPI application or are no longer maintained. Users and developers should focus on the FastAPI backend (`api_server.py`) as the primary and current application.
 
@@ -522,6 +530,8 @@ export const Portfolio = () => {
     -   Remove Flask-related dependencies if fully consolidated.
 3.  **Documentation**:
     -   Keep this API documentation (`README.md`) fully synchronized with `api_server.py`.
+    *   Add documentation for the new AI Contract Auditor feature and its API endpoint.
+    *   Clearly state the `OPENROUTER_API_KEY` requirement for the auditor.
     -   Improve inline code documentation across frontend and backend.
     -   Add detailed architecture diagrams.
 4.  **Frontend Enhancements**:
@@ -536,3 +546,5 @@ export const Portfolio = () => {
 *   **Flask Application (`run.py`, `trading_platform/` directory):** The Flask-based application previously included in this repository is now considered deprecated. It is not part of the main Dockerized deployment, and its functionalities have either been integrated into the FastAPI application or are no longer actively maintained. The primary backend service is the FastAPI application found in `api_server.py`. All new development and usage should focus on the FastAPI application.
 
 See [`USAGE.md`](USAGE.md:1) for detailed usage instructions.
+
+[end of README.md]

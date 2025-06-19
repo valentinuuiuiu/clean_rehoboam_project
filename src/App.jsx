@@ -4,12 +4,11 @@ import MCPFunctionVisualizer from './components/MCPFunctionVisualizer';
 import MCPStatus from './components/MCPStatus';
 import VetalaProtectionDashboard from './components/VetalaProtectionDashboard';
 import ProfitableFlashArbitrage from './components/ProfitableFlashArbitrage';
-import ConsciousnessDisplay from './components/ConsciousnessDisplay'; // Import new component
+import ConsciousnessDisplay from './components/ConsciousnessDisplay';
+import ContractAuditor from './components/ContractAuditor'; // Import the new component
 import { useWeb3 } from './contexts/Web3Context';
 import { useNotification } from './contexts/NotificationContext';
 import tradingService from './services/tradingService';
-
-// Removed RehoboamAI class definition
 
 function App() {
   const [activeTab, setActiveTab] = useState('trading');
@@ -52,14 +51,14 @@ function App() {
     try {
       const rawAnalysisData = await tradingService.getMarketSentiment('ETH');
       if (rawAnalysisData) {
-        setMarketAnalysis({ full_data: rawAnalysisData }); // Store the whole object
+        setMarketAnalysis({ full_data: rawAnalysisData });
       } else {
-        setMarketAnalysis({ full_data: null }); // Explicitly set to null if no data
+        setMarketAnalysis({ full_data: null });
         addNotification('warning', 'Market analysis data structure unexpected or unavailable.');
       }
     } catch (error) {
       console.error('Error loading market analysis in App.jsx:', error);
-      setMarketAnalysis({ full_data: null }); // Set to null on error
+      setMarketAnalysis({ full_data: null });
       addNotification('error', 'Failed to load market analysis');
     }
   };
@@ -134,6 +133,15 @@ function App() {
     return `${score.toFixed(0)}% (${label})`;
   };
 
+  const TABS = [
+    { id: 'trading', label: 'Trading' },
+    { id: 'companions', label: 'AI Companions' },
+    { id: 'mcp', label: 'MCP Visualizer' },
+    { id: 'auditor', label: '🔍 AI Contract Auditor', color: 'teal' }, // New Tab
+    { id: 'vetala', label: '🕉️ Vetal Shabar Raksha', color: 'yellow' },
+    { id: 'flash-arbitrage', label: '⚡ Flash Arbitrage', color: 'green' },
+    { id: 'consciousness', label: '🧠 Consciousness', color: 'purple' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -141,22 +149,18 @@ function App() {
         <div className="container mx-auto">
           <h1 className="text-4xl font-bold mb-2">Rehoboam Platform</h1>
           <p className="text-gray-400">AI-Powered Trading & Companions</p>
-          <div className="flex mt-6 border-b border-gray-700">
-            {['trading', 'companions', 'mcp', 'vetala', 'flash-arbitrage', 'consciousness'].map(tabName => (
+          <div className="flex mt-6 border-b border-gray-700 overflow-x-auto pb-1"> {/* Added pb-1 for bottom spacing of border */}
+            {TABS.map(tab => (
               <button
-                key={tabName}
-                className={`px-4 py-2 font-medium ${
-                  activeTab === tabName
-                    ? (tabName === 'vetala' ? 'text-yellow-400 border-yellow-400' :
-                       tabName === 'flash-arbitrage' ? 'text-green-400 border-green-400' :
-                       tabName === 'consciousness' ? 'text-purple-400 border-purple-400' :
-                       'text-blue-400 border-blue-400') + ' border-b-2'
+                key={tab.id}
+                className={`px-4 py-2 font-medium whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? `${tab.color ? `text-${tab.color}-400 border-${tab.color}-400` : 'text-blue-400 border-blue-400'} border-b-2`
                     : 'text-gray-400 hover:text-gray-200'
                 }`}
-                onClick={() => setActiveTab(tabName)}
+                onClick={() => setActiveTab(tab.id)}
               >
-                {tabName === 'vetala' ? '🕉️ ' : tabName === 'flash-arbitrage' ? '⚡ ' : tabName === 'consciousness' ? '🧠 ' : ''}
-                {tabName.charAt(0).toUpperCase() + tabName.slice(1).replace('-', ' ')}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -178,7 +182,6 @@ function App() {
                           <div key={token} className="bg-gray-800 p-3 rounded-lg">
                             <p className="text-xs text-gray-400">{token}/USD</p>
                             <p className="text-xl font-bold">${price.toFixed(2)}</p>
-                            {/* Placeholder for change, adapt if API provides it */}
                             <p className={Math.random() > 0.5 ? "text-green-400" : "text-red-400"}>
                               {(Math.random() * 5).toFixed(1)}%
                             </p>
@@ -353,3 +356,5 @@ function App() {
 }
 
 export default App;
+
+[end of src/App.jsx]

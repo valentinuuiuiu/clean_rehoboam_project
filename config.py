@@ -73,6 +73,12 @@ class Config:
         "HAI",  # HackerAI token for Network consciousness expansion
         "MINA"  # Mina Protocol native token
     ]
+
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1"
+    OPENROUTER_DEFAULT_MODEL = "google/gemini-flash-1.5" # Using a valid and recent flash model
+    OPENROUTER_CHAT_ENDPOINT = "/chat/completions" # Common for OpenAI compatible APIs
     
     @classmethod
     def validate(cls) -> Dict[str, Any]:
@@ -91,10 +97,13 @@ class Config:
             
         # Verifică cheile API
         if not os.environ.get("ALCHEMY_API_KEY") and not os.environ.get("INFURA_API_KEY"):
-            issues["RPC_KEYS"] = "Lipsesc cheile API pentru Alchemy sau Infura."
+            issues["RPC_KEYS"] = "Lipsesc cheile API pentru Alchemy sau Infura." # This might conflict if RPC_URL is directly set
             
         if not os.environ.get("ETHERSCAN_API_KEY"):
             issues["ETHERSCAN_API_KEY"] = "Lipsește cheia API pentru Etherscan."
+
+        if not cls.OPENROUTER_API_KEY: # Check if the new key is present in the environment
+            issues["OPENROUTER_API_KEY"] = "Lipsește cheia API pentru OpenRouter (OPENROUTER_API_KEY)."
             
         # Avertismente
         if cls.MARKET_CHECK_INTERVAL < 30:

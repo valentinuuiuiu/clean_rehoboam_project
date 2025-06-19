@@ -35,9 +35,13 @@ from utils.mcp_clients import ( # Updated import for all new clients
     get_mcp_specialist_strategy,
     get_mcp_portfolio_optimization
 )
+from utils.t2l_auditor_engine import T2LAuditorEngine # Import the new Auditor Engine
+from utils.layer2_trading import Layer2GasEstimator, Layer2Liquidation, Layer2TradingOptimizer # Import L2 components
 
 # Consolidated routers and services
-from api_routers import companions_router, mcp_router
+# from api_routers import companions_router, mcp_router # Assuming this was an incomplete refactor
+from api_companions import router as companions_router # Direct import
+from api_mcp import router as mcp_router             # Direct import
 from utils import web3_service
 
 import logging
@@ -131,7 +135,7 @@ try:
     logger.info("🧠 Rehoboam consciousness matrix fully activated")
     
 except Exception as e:
-    logger.error(f"Failed to initialize Rehoboam consciousness layers: {str(e)}")
+    logger.error(f"Failed to initialize Rehoboam consciousness layers: {str(e)}", exc_info=True) # Added exc_info
     rehoboam = None
     reasoning_orchestrator = None
     market_analyzer = None
@@ -139,11 +143,23 @@ except Exception as e:
     mcp_specialist = None
     portfolio_optimizer = None
 
+# Initialize T2L Auditor Engine
+try:
+    t2l_auditor = T2LAuditorEngine()
+    logger.info("T2L Auditor Engine initialized successfully.")
+except Exception as e:
+    t2l_auditor = None
+    logger.error(f"Failed to initialize T2L Auditor Engine: {e}", exc_info=True)
+
 from utils.user_preferences import preferences_manager
 
 # Initialize companion API with consciousness layers
 from api_companions import initialize_companion_system
-initialize_companion_system(rehoboam, companion_creator)
+# Ensure rehoboam and companion_creator are checked for None before calling
+if rehoboam and companion_creator:
+    initialize_companion_system(rehoboam, companion_creator)
+else:
+    logger.warning("Skipping companion system initialization due to missing RehoboamAI or AICompanionCreator.")
 
 # CORS configuration
 app.add_middleware(
@@ -742,6 +758,12 @@ class StrategyExecutionRequest(BaseModel):
     network: Optional[str] = None
     # Add any other parameters the frontend might send or strategy execution might need
     amount: Optional[float] = Field(None, gt=0, description="Optional amount to override strategy's default")
+
+class ContractAuditRequest(BaseModel):
+    contract_code: Optional[str] = Field(None, description="Full Solidity code of the contract to audit.")
+    contract_address: Optional[str] = Field(None, description="Address of the deployed contract on a supported network.")
+    network_name: Optional[str] = Field(None, description="Network name if fetching code by address (e.g., 'ethereum', 'polygon').")
+    audit_task_description: str = Field(..., min_length=10, description="Natural language description of the audit task (e.g., 'Check for reentrancy vulnerabilities').")
 
 # Mock strategies - in a real system, these would come from a database or config
 MOCK_STRATEGIES = {
@@ -3144,18 +3166,65 @@ async def get_batch_prices(symbols: str = "BTC,ETH,LINK"):
 
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- New AI Auditing Endpoint ---
+@app.post("/api/audit/contract", tags=["AI Auditing"], response_model=Dict[str, Any])
+async def audit_contract_endpoint(payload: ContractAuditRequest, user_id: str = Depends(get_current_user)): # Using the simpler get_current_user
+    if not t2l_auditor:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="T2L Auditor Engine is not available.")
+
+    code_to_audit = payload.contract_code
+    source_description = "direct code submission"
+
+    if not code_to_audit and payload.contract_address and payload.network_name:
+        # TODO: Implement fetching contract code from address/network using L2Manager or web3_service.
+        logger.warning(f"Contract code fetching for address {payload.contract_address} on {payload.network_name} is not yet implemented.")
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Fetching contract code by address is not yet implemented. Please provide direct contract_code.")
+
+    if not code_to_audit:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contract code must be provided directly in this version.")
+
+    logger.info(f"Received audit request from user '{user_id}' for task: '{payload.audit_task_description}' on contract ({source_description})")
+
+    try:
+        audit_result = await t2l_auditor.perform_audit(
+            contract_code=code_to_audit,
+            audit_task_description=payload.audit_task_description
+        )
+
+        if audit_result:
+            return {
+                "status": "success",
+                "audit_task": payload.audit_task_description,
+                "source_description": source_description,
+                "audit_result": audit_result,
+                "timestamp": datetime.now(timezone.utc).isoformat() # Use timezone aware datetime
+            }
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Audit failed or returned no actionable results. Check server logs for T2L Auditor Engine.")
+    except HTTPException: # Re-raise HTTPExceptions from perform_audit or this level
+        raise
+    except Exception as e:
+        logger.error(f"Error during contract audit endpoint processing: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred during the audit: {str(e)}")
+
+
 # Error handling
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     """Handle general exceptions."""
-    logger.error(f"Unhandled exception: {str(exc)}")
-    return {
-        "success": False,
-        "error": {
-            "message": "Internal server error",
-            "detail": str(exc)
+    logger.error(f"Unhandled exception: {str(exc)} for request {request.url}", exc_info=True) # Added exc_info and request.url
+    # Consider returning JSONResponse for FastAPI standard error handling
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": {
+                "message": "Internal server error",
+                "detail": str(exc)
+            }
         }
-    }
+    )
 
 if __name__ == "__main__":
     import uvicorn
