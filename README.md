@@ -21,6 +21,7 @@ The FastAPI server (`api_server.py`) interacts with these MCP services to levera
   > **Note**: When an MCP service is unavailable, the main API server (`api_server.py`) often falls back to locally implemented Rehoboam functions where available.
 - **AI Companions**: Interactive AI personalities offering unique insights and engagement, accessible via the `/api/companions` backend and a dedicated "AI Companions" UI tab.
 - **AI Smart Contract Auditor (T2L-Inspired)**: Utilizes a T2L-inspired mechanism with Gemini 1.5 Flash (via OpenRouter) to audit Solidity smart contracts. Users provide contract code and a natural language task description (e.g., "check for reentrancy"). The system (conceptually) tailors its analysis based on the task. The LoRA generation aspect is currently simulated, but the LLM interaction for auditing is functional. Requires `OPENROUTER_API_KEY` in `.env`. (See API endpoint `/api/audit/contract`).
+- **L2 Arbitrage Bot (Real Execution)**: See dedicated section below.
 - Multi-wallet support (MetaMask and Talisman)
 - Multi-chain compatibility (Ethereum, Arbitrum, Optimism, Polygon, Base, and more)
 - Real-time price feeds and market data
@@ -32,6 +33,84 @@ The FastAPI server (`api_server.py`) interacts with these MCP services to levera
 - Cross-chain arbitrage detection
 - Blockchain analysis tools (wallet behavior, MEV detection, contract security)
 - Web interface with React and TypeScript
+
+## 🤖 L2 Arbitrage Bot (Real Execution)
+
+The Rehoboam platform includes an advanced Layer 2 (L2) Arbitrage Bot capable of identifying and executing arbitrage opportunities across different L2 networks and DEXs. This feature is currently experimental and intended for **TESTNET USE ONLY**.
+
+### Key Components
+
+-   **`utils.l2_manager.L2Manager`**: The primary class for interacting with L2 networks, including sending transactions and estimating gas.
+-   **`utils.l2_manager.L2ArbitrageHelper`**: Works in conjunction with `L2Manager` to:
+    -   Scan for potential arbitrage opportunities based on configured DEXs and token pairs.
+    -   Utilize `get_real_dex_price` to fetch prices. Currently, this method has a more realistic implementation for Uniswap V2 compatible DEXs on networks like Arbitrum Sepolia (specifically for WETH/USDC pairs) and uses simulated prices for other pairs/DEXs as placeholders.
+    -   Orchestrate the buy and sell legs of an identified arbitrage opportunity via `_execute_arbitrage_trade`, which uses `L2Manager.execute_dex_swap` for on-chain transactions.
+
+### Configuration Requirements
+
+To enable and configure the L2 Arbitrage Bot for execution, the following are essential:
+
+1.  **Environment Variables**: Set these in your `.env` file:
+    *   `L2_EXECUTION_WALLET_ADDRESS`: The public address of the wallet to be used for trading.
+    *   `L2_EXECUTION_PRIVATE_KEY`: **(EXTREMELY SENSITIVE)** The private key for the execution wallet.
+    *   `L2_ENABLE_REAL_TRADING="true"`: Must be set to `"true"` to allow the bot to attempt real transactions. Defaults to `false`.
+    *   `L2_DEFAULT_SLIPPAGE="0.005"`: Default slippage tolerance for DEX swaps (e.g., 0.005 for 0.5%).
+    *   `L2_DEFAULT_TRADE_AMOUNT_USD="10"`: The approximate USD value for trades initiated by the bot (e.g., "10" for $10).
+    *   `L2_BOT_MAX_GAS_PRICE_GWEI="100"`: Maximum gas price (in Gwei) the bot will use for transactions. Transactions will be aborted if current network gas exceeds this.
+    *   Ensure relevant RPC URLs are also set (e.g., `ARBITRUM_SEPOLIA_RPC_URL`, `POLYGON_MUMBAI_RPC_URL`).
+
+2.  **DEX Configuration File (`config/l2_dex_config.json`)**:
+    This JSON file defines the L2 networks, DEXs, and tokens the bot will operate with.
+    Example structure:
+    ```json
+    {
+        "arbitrum_sepolia": {
+            "dexs": {
+                "sushiswap_test": {
+                    "router_address": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+                    "type": "uniswap_v2"
+                }
+            },
+            "tokens": {
+                "WETH": {"address": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73", "decimals": 18},
+                "USDC": {"address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", "decimals": 6}
+            }
+        },
+        "polygon_mumbai": {
+            "dexs": {
+                 "quickswap_test": {
+                    "router_address": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
+                    "type": "uniswap_v2"
+                 }
+            },
+            "tokens": { // Ensure these are testnet addresses
+                "WMATIC": {"address": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889", "decimals": 18},
+                "USDC": {"address": "0x0FA8781a83E46826621b3BC094Ea2A0212e71B23", "decimals": 6}
+            }
+        }
+    }
+    ```
+
+### How to Run (Conceptual for Testnet)
+
+1.  Ensure all environment variables listed above are correctly set in your `.env` file.
+2.  Create and populate `config/l2_dex_config.json` with the desired testnet networks, DEXs, and token details.
+3.  The core scanning logic is in `L2ArbitrageHelper.scan_multichain_opportunities()`.
+4.  The `if __name__ == '__main__':` block in `utils/l2_manager.py` provides an example of how to instantiate `L2Manager` (which in turn instantiates `L2ArbitrageHelper`) and run the scanner. This block can be adapted or executed directly (e.g., `python -m utils.l2_manager`) after setting up your environment.
+5.  **ALWAYS START WITH TESTNETS AND TEST TOKENS.**
+
+---
+
+> **🛑 CRITICAL WARNINGS AND DISCLAIMERS 🛑**
+>
+> *   **RISK OF FINANCIAL LOSS**: AUTOMATED TRADING WITH REAL FUNDS, EVEN ON TESTNETS IF CONFIGURATIONS ARE MISTAKENLY POINTED TO MAINNETS OR IF REAL PRIVATE KEYS ARE USED, IS EXTREMELY RISKY. YOU COULD LOSE ALL YOUR CAPITAL. PROCEED WITH EXTREME CAUTION.
+> *   **EXPERIMENTAL SOFTWARE**: THIS IS EXPERIMENTAL, RESEARCH-GRADE SOFTWARE. IT HAS NOT BEEN PROFESSIONALLY AUDITED FOR SECURITY OR FINANCIAL SOUNDNESS. USE AT YOUR OWN ABSOLUTE RISK.
+> *   **TESTNET ONLY**: IT IS STRONGLY ADVISED TO USE THIS SOFTWARE **EXCLUSIVELY ON TESTNETS WITH VALUELESS TEST TOKENS** UNTIL YOU HAVE THOROUGHLY TESTED, UNDERSTOOD, AND AUDITED THE CODE YOURSELF OR VIA A PROFESSIONAL.
+> *   **SECURITY OF PRIVATE KEYS**: PROVIDING A PRIVATE KEY TO ANY SOFTWARE, INCLUDING THIS ONE (VIA `L2_EXECUTION_PRIVATE_KEY`), CARRIES INHERENT AND SIGNIFICANT SECURITY RISKS. ENSURE THE ENVIRONMENT WHERE THE SOFTWARE RUNS IS SECURE. CONSIDER USING DEDICATED, LOW-VALUE HOT WALLETS FOR TESTING IF YOU PROCEED BEYOND SIMULATION.
+> *   **NO GUARANTEE OF PROFIT**: ARBITRAGE OPPORTUNITIES IDENTIFIED BY THE BOT ARE NOT GUARANTEED TO BE PROFITABLE. FACTORS SUCH AS NETWORK LATENCY, SLIPPAGE, GAS FEES, AND SUDDEN MARKET VOLATILITY CAN NEGATIVELY IMPACT OR ELIMINATE POTENTIAL PROFITS. THE BOT'S CURRENT PRICE FETCHING FOR MANY PAIRS IS SIMULATED.
+> *   **CONFIGURATION ERRORS**: MISTAKES IN CONFIGURING NETWORK RPC URLS, DEX ROUTER ADDRESSES, TOKEN ADDRESSES, OR DECIMALS CAN LEAD TO FAILED TRANSACTIONS OR LOSS OF FUNDS. DOUBLE-CHECK ALL CONFIGURATIONS.
+
+---
 
 ## Prerequisites
 
@@ -58,16 +137,23 @@ The platform requires RPC endpoints for blockchain access. Configure these in yo
 - `ARBITRUM_RPC_URL`: Arbitrum One RPC
 - `OPTIMISM_RPC_URL`: Optimism Mainnet RPC
 - `BSC_RPC_URL`: Binance Smart Chain RPC
+- `ARBITRUM_SEPOLIA_RPC_URL`: Arbitrum Sepolia Testnet RPC (Example for L2 Bot)
+- `POLYGON_MUMBAI_RPC_URL`: Polygon Mumbai Testnet RPC (Example for L2 Bot)
+
 
 ### Wallet Security
 - `WALLET_ENCRYPTION_KEY`: Encryption key for wallet security
-- `HOT_WALLET_PRIVATE_KEY`: Private key for hot wallet (development only)
+- `HOT_WALLET_PRIVATE_KEY`: Private key for hot wallet (development only, **NEVER USE FOR REAL FUNDS YOU AREN'T WILLING TO LOSE**)
 - `COLD_WALLET_ADDRESS`: Address for cold storage
+
+### L2 Arbitrage Bot Execution Wallet
+- `L2_EXECUTION_WALLET_ADDRESS`: Public address for L2 arbitrage bot trades.
+- `L2_EXECUTION_PRIVATE_KEY`: **(EXTREMELY SENSITIVE)** Private key for L2 arbitrage bot trades. **USE A DEDICATED TESTNET WALLET ONLY.**
 
 ### Security Notes
 1. Never commit real private keys to source control
 2. Use hardware wallets for production deployments
-3. Configure proper gas limits (`MAX_GAS_PRICE_GWEI`)
+3. Configure proper gas limits (`MAX_GAS_PRICE_GWEI`, `L2_BOT_MAX_GAS_PRICE_GWEI`)
 4. Enable all security middleware in production
 
 ## Web3 API Endpoints
@@ -103,6 +189,15 @@ The following endpoints are available for direct Web3 interactions:
     -   `ETHERSCAN_API_KEY`: For blockchain analysis.
     -   `DATABASE_URL`: For PostgreSQL connection (used in Docker setup).
     -   `JWT_SECRET`: A secure secret key for JWT authentication.
+    -   **For L2 Arbitrage Bot (Real Execution)**:
+        -   `L2_EXECUTION_WALLET_ADDRESS`
+        -   `L2_EXECUTION_PRIVATE_KEY` (**HANDLE WITH EXTREME CARE**)
+        -   `L2_ENABLE_REAL_TRADING`
+        -   `L2_DEFAULT_SLIPPAGE`
+        -   `L2_DEFAULT_TRADE_AMOUNT_USD`
+        -   `L2_BOT_MAX_GAS_PRICE_GWEI`
+        -   And corresponding testnet RPC URLs like `ARBITRUM_SEPOLIA_RPC_URL`.
+
 
 ## Quick Start (Local Development)
 
@@ -546,5 +641,3 @@ export const Portfolio = () => {
 *   **Flask Application (`run.py`, `trading_platform/` directory):** The Flask-based application previously included in this repository is now considered deprecated. It is not part of the main Dockerized deployment, and its functionalities have either been integrated into the FastAPI application or are no longer actively maintained. The primary backend service is the FastAPI application found in `api_server.py`. All new development and usage should focus on the FastAPI application.
 
 See [`USAGE.md`](USAGE.md:1) for detailed usage instructions.
-
-[end of README.md]

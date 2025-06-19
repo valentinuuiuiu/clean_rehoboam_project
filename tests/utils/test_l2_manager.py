@@ -126,3 +126,129 @@ def test_mock_gas_estimator_direct_call():
     result = estimator.get_gas_price(network_name)
     assert result == expected_gas_info
     estimator.get_gas_price.assert_called_once_with(network_name)
+
+
+# --- Tests for L2ArbitrageHelper ---
+from utils.l2_manager import L2ArbitrageHelper # Ensure this is imported
+from unittest.mock import AsyncMock
+
+@pytest.fixture
+def mock_l2_manager_for_helper():
+    """Creates a comprehensive mock for L2Manager instance needed by L2ArbitrageHelper."""
+    manager = MagicMock(spec=L2Manager)
+    manager.network_config = MockNetworkConfig() # Use the existing mock
+    manager.web3_service = MockWeb3Service()   # Use the existing mock
+    manager.logger = MagicMock()
+    manager.gas_estimator = MockLayer2GasEstimator(manager.network_config) # Helper uses manager's gas_estimator
+
+    # _execute_arbitrage_trade calls l2_manager.execute_dex_swap
+    manager.execute_dex_swap = AsyncMock(return_value="0xmock_buy_tx_hash") # Default success for buy leg
+    return manager
+
+@pytest.fixture
+def l2_arbitrage_helper_fixture(mock_l2_manager_for_helper):
+    """Provides an L2ArbitrageHelper instance with mocked L2Manager."""
+    # We need a NetworkConfig instance for L2ArbitrageHelper's own initialization needs
+    # if it directly uses it, apart from through L2Manager.
+    # L2ArbitrageHelper.__init__ takes network_config_instance and l2_manager_instance
+
+    helper = L2ArbitrageHelper(
+        network_config_instance=mock_l2_manager_for_helper.network_config, # Can share the one from mocked L2Manager
+        l2_manager_instance=mock_l2_manager_for_helper
+    )
+
+    # Set default values for testing calculations
+    helper.default_slippage = Decimal("0.01")  # 1%
+    helper.default_trade_amount_usd = Decimal("100.0")
+    helper.wallet_address = "0xTestWalletAddress"
+    helper.private_key = "0xTestPrivateKeyToPassInitCheck" # Ensure it passes the init check
+    helper.enable_real_trading = True # To ensure _execute_arbitrage_trade runs
+    helper.logger = MagicMock() # Mock logger for the helper itself
+
+    # _load_dex_configurations is called in __init__.
+    # We'll override common_tokens and dex_configs here for test predictability,
+    # assuming _load_dex_configurations might not find a file or we want specific test data.
+    helper.common_tokens = {
+        "test_buy_net": {
+            "USDC": {"address": "0xUSDCAddressBuy", "decimals": 6},
+            "WETH": {"address": "0xWETHAddressBuy", "decimals": 18}
+        },
+        "test_sell_net": { # For completeness if sell leg was also deeply tested
+            "USDC": {"address": "0xUSDCAddressSell", "decimals": 6},
+            "WETH": {"address": "0xWETHAddressSell", "decimals": 18}
+        }
+    }
+    helper.dex_configs = { # Minimal structure
+        "test_buy_net": {"test_dex_buy": {"router_address": "0xRouterBuy"}},
+        "test_sell_net": {"test_dex_sell": {"router_address": "0xRouterSell"}}
+    }
+    return helper
+
+
+@pytest.mark.asyncio
+async def test_execute_arbitrage_buy_leg_calculations(l2_arbitrage_helper_fixture):
+    helper = l2_arbitrage_helper_fixture
+
+    opportunity = {
+        "buy_network": "test_buy_net",
+        "sell_network": "test_sell_net",
+        "token_to_trade_symbol": "WETH",
+        "reference_token_symbol": "USDC",
+        "buy_price_in_ref": Decimal("2000.0"),  # 1 WETH = 2000 USDC
+        "sell_price_in_ref": Decimal("2020.0"), # Not used for buy leg calc but good for context
+        "buy_dex_name": "test_dex_buy",
+        "sell_dex_name": "test_dex_sell",
+        "buy_dex_router_address": "0xRouterBuy",
+        "sell_dex_router_address": "0xRouterSell",
+        "reference_token_address_on_buy_network": "0xUSDCAddressBuy",
+        "reference_token_decimals_on_buy_network": 6, # Overridden by helper.common_tokens
+        "token_to_trade_address_on_buy_network": "0xWETHAddressBuy",
+        "token_to_trade_decimals_on_buy_network": 18,   # Overridden by helper.common_tokens
+
+        "reference_token_address_on_sell_network": "0xUSDCAddressSell",
+        "reference_token_decimals_on_sell_network": 6,
+        "token_to_trade_address_on_sell_network": "0xWETHAddressSell",
+        "token_to_trade_decimals_on_sell_network": 18,
+        "potential_net_profit_usd": Decimal("10.0"), # Example
+        "description": "Test WETH/USDC Arbitrage Opportunity"
+    }
+
+    # Ensure the mock for execute_dex_swap is correctly associated with the helper's l2_manager instance
+    # The fixture mock_l2_manager_for_helper already sets execute_dex_swap as an AsyncMock.
+
+    # Call the method under test
+    await helper._execute_arbitrage_trade(opportunity)
+
+    # Assert that l2_manager.execute_dex_swap was called for the BUY leg
+    helper.l2_manager.execute_dex_swap.assert_any_call(
+        network_name="test_buy_net",
+        dex_router_address="0xRouterBuy",
+        from_token_address="0xUSDCAddressBuy",
+        to_token_address="0xWETHAddressBuy",
+        amount_in_wei=int(Decimal("100.0") * (10**6)),  # 100 USDC with 6 decimals
+        min_amount_out_wei=int(Decimal("0.05") * (Decimal("1") - Decimal("0.01")) * (10**18)), # Expected: (100/2000) * 0.99 * 10^18
+        wallet_address="0xTestWalletAddress",
+        private_key="0xTestPrivateKeyToPassInitCheck"
+    )
+
+    # Check if it was called once for buy and once for sell (assuming buy was successful)
+    # If execute_dex_swap is mocked to return a truthy value (like the default "0xmock_buy_tx_hash"),
+    # it should proceed to the sell leg.
+    assert helper.l2_manager.execute_dex_swap.call_count == 2 # Buy and Sell
+
+    # Optionally, capture args for more detailed assertions if needed:
+    buy_call_args = helper.l2_manager.execute_dex_swap.call_args_list[0]
+
+    expected_amount_in_wei_buy = 100 * (10**6) # 100 USDC (6 decimals)
+
+    expected_weth_out_decimal = Decimal("100.0") / Decimal("2000.0") # 0.05 WETH
+    min_weth_out_decimal = expected_weth_out_decimal * (Decimal("1.0") - Decimal("0.01")) # 0.0495 WETH
+    expected_min_amount_out_wei_buy = int(min_weth_out_decimal * (10**18)) # WETH (18 decimals)
+
+    assert buy_call_args.kwargs['amount_in_wei'] == expected_amount_in_wei_buy
+    assert buy_call_args.kwargs['min_amount_out_wei'] == expected_min_amount_out_wei_buy
+    assert buy_call_args.kwargs['network_name'] == "test_buy_net"
+    assert buy_call_args.kwargs['dex_router_address'] == "0xRouterBuy"
+    assert buy_call_args.kwargs['from_token_address'] == "0xUSDCAddressBuy"
+    assert buy_call_args.kwargs['to_token_address'] == "0xWETHAddressBuy"
+    assert buy_call_args.kwargs['wallet_address'] == "0xTestWalletAddress"
